@@ -203,7 +203,7 @@ export class PanelLayoutManager implements AppModule {
         </div>
         <div class="header-center">
           <span class="personal-dashboard-title">Laurent DE Keukeleire Personal Dashboard</span>
-          <a href="http://localhost:3001" target="_blank" rel="noopener" class="clawbot-terminal-btn" title="Open OpenClaw Intelligence Terminal">
+          <a href="https://terminal.costo.eu" target="_blank" rel="noopener" class="clawbot-terminal-btn" title="Open OpenClaw Intelligence Terminal">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             OpenClaw Terminal
           </a>

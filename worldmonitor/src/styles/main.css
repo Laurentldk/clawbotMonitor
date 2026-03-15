@@ -3691,7 +3691,7 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
 
 /* Playback Control */
 .playback-control {
-  position: relative;
+  display: none !important;
 }
 
 .playback-toggle {

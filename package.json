@@ -1,0 +1,20 @@
+{
+  "name": "openclaw",
+  "version": "2026.3.0",
+  "description": "Laurent DE Keukeleire — OpenClaw Intelligence Platform (Terminal + WorldMonitor)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "wm:install": "cd worldmonitor && npm install",
+    "wm:build": "node scripts/build-wm.js",
+    "install:all": "npm install && cd worldmonitor && npm install",
+    "build:all": "npm install && cd worldmonitor && npm install && npm run build",
+    "deploy": "git pull && npm install && cd worldmonitor && npm install && npm run build && cd .. && pm2 restart openclaw"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0"
+  }
+}

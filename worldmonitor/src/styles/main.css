@@ -3694,6 +3694,10 @@ body.live-news-fullscreen-active .panels-grid > *:not(.live-news-fullscreen) {
   display: none !important;
 }
 
+.pro-banner {
+  display: none !important;
+}
+
 .playback-toggle {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);

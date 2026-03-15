@@ -1,24 +1,41 @@
 # OpenClaw Platform — Deployment Guide
 
-Full instructions for deploying the OpenClaw Intelligence Terminal + WorldMonitor on a Hetzner Cloud VPS.
+Full instructions for deploying the OpenClaw Intelligence Terminal + WorldMonitor on a VPS.
+Supports **Hostinger VPS** and **Hetzner Cloud** — steps are identical after the server is created.
 
 ---
 
 ## Architecture
 
 ```
-Hetzner VPS (Ubuntu 24.04)
+VPS (Ubuntu 24.04) — Hostinger or Hetzner
 ├── node server.js
 │   ├── OpenClaw Terminal   → port 3001
 │   └── WorldMonitor        → port 3000
 └── nginx (reverse proxy)
-    ├── yourdomain.com       → port 3000 (WorldMonitor, main dashboard)
-    └── terminal.yourdomain.com  → port 3001 (OpenClaw Terminal)
+    ├── yourdomain.com             → port 3000 (WorldMonitor, main dashboard)
+    └── terminal.yourdomain.com   → port 3001 (OpenClaw Terminal)
 ```
 
 ---
 
-## Step 1 — Create a Hetzner VPS
+## Step 1 — Create a VPS
+
+### Option A — Hostinger VPS (recommended for beginners)
+
+1. Go to [hostinger.com/vps-hosting](https://www.hostinger.com/vps-hosting)
+2. Choose a plan: **KVM 2** (~$6.99/month — 2 vCPU, 8 GB RAM) or **KVM 1** (~$4.99/month)
+3. During setup:
+   - **OS:** Ubuntu 24.04
+   - **Region:** Frankfurt or London (closest to Brussels)
+4. Once created, go to **hPanel → VPS → Manage**
+5. Find your server's **public IP address**
+6. Set a **root password** or add your SSH key under **SSH Access**
+
+> **Note:** Make sure you select **VPS Hosting**, not Shared Hosting or Cloud Hosting.
+> Shared hosting does not support custom Node.js servers.
+
+### Option B — Hetzner Cloud
 
 1. Go to [console.hetzner.cloud](https://console.hetzner.cloud)
 2. Create a new project
@@ -36,6 +53,11 @@ Hetzner VPS (Ubuntu 24.04)
 ```bash
 ssh root@YOUR_SERVER_IP
 ```
+
+> **Hostinger tip:** If you set a password instead of an SSH key, use:
+> `ssh root@YOUR_SERVER_IP` and enter your password when prompted.
+> You can also use the **Browser Terminal** in hPanel → VPS → Manage → Terminal
+> as an alternative to SSH.
 
 ---
 

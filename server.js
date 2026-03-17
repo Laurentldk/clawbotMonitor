@@ -52,6 +52,15 @@ terminal.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+terminal.post('/api/trigger-brief', async (req, res) => {
+  try {
+    await pushService.triggerMorningBrief();
+    res.json({ ok: true, message: 'Morning brief sent to Discord' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 startServer(terminal, PORT_TERMINAL, '⚡ OpenClaw Terminal ');
 
 // ── WORLDMONITOR ───────────────────────────────────────────────

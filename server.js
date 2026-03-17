@@ -81,7 +81,7 @@ if (fs.existsSync(wmDist)) {
 
   // Proxy /api/{domain}/v1/* → internal API server
   wm.use(/^\/api\/[a-z-]+\/v1\//, async (req, res) => {
-    const targetUrl = `http://127.0.0.1:${API_PORT}${req.url}`;
+    const targetUrl = `http://127.0.0.1:${API_PORT}${req.originalUrl}`;
     const chunks = [];
     req.on('data', (chunk) => chunks.push(chunk));
     req.on('end', async () => {

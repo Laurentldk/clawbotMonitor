@@ -56,6 +56,27 @@ const wmDist = path.join(__dirname, 'worldmonitor', 'dist');
 
 if (fs.existsSync(wmDist)) {
   const wm = express();
+
+  // RSS proxy — WorldMonitor fetches /api/rss-proxy?url=<feed> to avoid CORS
+  wm.get('/api/rss-proxy', async (req, res) => {
+    const feedUrl = req.query.url;
+    if (!feedUrl || !feedUrl.startsWith('http')) {
+      return res.status(400).send('Missing or invalid url parameter');
+    }
+    try {
+      const upstream = await fetch(feedUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorldMonitor/1.0)' },
+        redirect: 'follow',
+      });
+      const contentType = upstream.headers.get('content-type') || 'application/xml';
+      res.set('Content-Type', contentType);
+      res.set('Cache-Control', 'public, max-age=120');
+      upstream.body.pipe(res);
+    } catch (err) {
+      res.status(502).send(`RSS proxy error: ${err.message}`);
+    }
+  });
+
   wm.use(express.static(wmDist));
   wm.get('*', (req, res) => {
     res.sendFile(path.join(wmDist, 'index.html'));

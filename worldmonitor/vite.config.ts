@@ -734,6 +734,13 @@ export default defineConfig({
         ],
       },
 
+      // injectManifest strategy uses this key (not workbox) for file size limit
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
+        globIgnores: ['**/ml*.js', '**/onnx*.wasm', '**/locale-*.js'],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+      },
+
       devOptions: {
         enabled: false,
       },

@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const fetch = require('node-fetch');
+const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -80,34 +81,27 @@ if (fs.existsSync(wmDist)) {
   const wm = express();
 
   // Proxy /api/{domain}/v1/* → internal API server
-  wm.use(/^\/api\/[a-z-]+\/v1\//, async (req, res) => {
-    const targetUrl = `http://127.0.0.1:${API_PORT}${req.originalUrl}`;
-    const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', async () => {
-      const body = Buffer.concat(chunks);
-      const headers = Object.assign({}, req.headers);
-      delete headers['origin'];
-      delete headers['host'];
-      try {
-        const upstream = await fetch(targetUrl, {
-          method: req.method,
-          headers,
-          body: body.length > 0 && req.method !== 'GET' && req.method !== 'HEAD' ? body : undefined,
-          redirect: 'follow',
-        });
-        res.status(upstream.status);
-        upstream.headers.forEach((value, key) => {
-          if (!['transfer-encoding', 'connection'].includes(key.toLowerCase())) {
-            res.set(key, value);
-          }
-        });
-        const buf = await upstream.buffer();
-        res.send(buf);
-      } catch (err) {
-        res.status(502).json({ error: 'API server unavailable', detail: err.message });
-      }
+  wm.use((req, res, next) => {
+    if (!/^\/api\/[a-z-]+\/v1\//.test(req.path)) return next();
+    const headers = Object.assign({}, req.headers);
+    delete headers['origin'];
+    delete headers['host'];
+    const proxyReq = http.request(
+      `http://127.0.0.1:${API_PORT}${req.originalUrl}`,
+      { method: req.method, headers },
+      (proxyRes) => {
+        const outHeaders = {};
+        for (const [k, v] of Object.entries(proxyRes.headers)) {
+          if (!['transfer-encoding', 'connection'].includes(k.toLowerCase())) outHeaders[k] = v;
+        }
+        res.writeHead(proxyRes.statusCode, outHeaders);
+        proxyRes.pipe(res);
+      },
+    );
+    proxyReq.on('error', (err) => {
+      if (!res.headersSent) res.status(502).json({ error: 'API server unavailable', detail: err.message });
     });
+    req.pipe(proxyReq);
   });
 
   // Push notification endpoints

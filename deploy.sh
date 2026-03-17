@@ -20,8 +20,8 @@ echo "🌍 Installing WorldMonitor dependencies..."
 cd worldmonitor && npm install
 
 echo "🔨 Building WorldMonitor..."
-npx tsc --noEmitOnError false && npx vite build
 cd ..
+node scripts/build-wm.js
 
 # Restart OpenClaw Terminal via PM2
 echo "⚡ Restarting OpenClaw Terminal..."

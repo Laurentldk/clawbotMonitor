@@ -3,6 +3,7 @@ const express = require('express');
 const fetch = require('node-fetch');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const pushService = require('./lib/push-service');
 
 // ── API KEYS (loaded from .env — never hardcoded) ─────────────
@@ -56,7 +57,58 @@ startServer(terminal, PORT_TERMINAL, '⚡ OpenClaw Terminal ');
 const wmDist = path.join(__dirname, 'worldmonitor', 'dist');
 
 if (fs.existsSync(wmDist)) {
+  // ── Spawn internal API server (TypeScript handlers via tsx) ──────────────
+  const API_PORT = parseInt(process.env.API_SERVER_PORT || '3002');
+  const tsxBin = path.join(__dirname, 'worldmonitor', 'node_modules', '.bin', 'tsx');
+  const apiServerScript = path.join(__dirname, 'worldmonitor', 'api-server.ts');
+
+  if (fs.existsSync(tsxBin) && fs.existsSync(apiServerScript)) {
+    const apiProc = spawn(tsxBin, [apiServerScript], {
+      env: { ...process.env, API_SERVER_PORT: String(API_PORT) },
+      stdio: 'inherit',
+      shell: false,
+    });
+    apiProc.on('error', (err) => console.error('  ✖  API server failed to start:', err.message));
+    apiProc.on('exit', (code) => {
+      if (code !== 0 && code !== null) console.error(`  ✖  API server exited with code ${code}`);
+    });
+    process.on('exit', () => apiProc.kill());
+  } else {
+    console.warn('  ⚠  API server not started — tsx or api-server.ts not found');
+  }
+
   const wm = express();
+
+  // Proxy /api/{domain}/v1/* → internal API server
+  wm.use(/^\/api\/[a-z-]+\/v1\//, async (req, res) => {
+    const targetUrl = `http://127.0.0.1:${API_PORT}${req.url}`;
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', async () => {
+      const body = Buffer.concat(chunks);
+      const headers = Object.assign({}, req.headers);
+      delete headers['origin'];
+      delete headers['host'];
+      try {
+        const upstream = await fetch(targetUrl, {
+          method: req.method,
+          headers,
+          body: body.length > 0 && req.method !== 'GET' && req.method !== 'HEAD' ? body : undefined,
+          redirect: 'follow',
+        });
+        res.status(upstream.status);
+        upstream.headers.forEach((value, key) => {
+          if (!['transfer-encoding', 'connection'].includes(key.toLowerCase())) {
+            res.set(key, value);
+          }
+        });
+        const buf = await upstream.buffer();
+        res.send(buf);
+      } catch (err) {
+        res.status(502).json({ error: 'API server unavailable', detail: err.message });
+      }
+    });
+  });
 
   // Push notification endpoints
   wm.get('/api/push/vapid-public-key', (_req, res) => {

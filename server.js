@@ -85,17 +85,27 @@ if (fs.existsSync(wmDist)) {
     if (!feedUrl || !feedUrl.startsWith('http')) {
       return res.status(400).send('Missing or invalid url parameter');
     }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
     try {
       const upstream = await fetch(feedUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WorldMonitor/1.0)' },
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+        },
         redirect: 'follow',
+        signal: controller.signal,
       });
-      const contentType = upstream.headers.get('content-type') || 'application/xml';
-      res.set('Content-Type', contentType);
+      clearTimeout(timer);
+      const body = await upstream.text();
+      res.set('Content-Type', 'application/xml; charset=utf-8');
       res.set('Cache-Control', 'public, max-age=120');
-      upstream.body.pipe(res);
+      res.set('Access-Control-Allow-Origin', '*');
+      res.status(upstream.status).send(body);
     } catch (err) {
-      res.status(502).send(`RSS proxy error: ${err.message}`);
+      clearTimeout(timer);
+      const isTimeout = err.name === 'AbortError';
+      res.status(isTimeout ? 504 : 502).send(`RSS proxy error: ${err.message}`);
     }
   });
 

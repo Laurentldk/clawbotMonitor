@@ -615,6 +615,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
 
       includeAssets: [
         'favico/favicon.ico',

@@ -3,6 +3,7 @@ const express = require('express');
 const fetch = require('node-fetch');
 const path = require('path');
 const fs = require('fs');
+const pushService = require('./lib/push-service');
 
 // ── API KEYS (loaded from .env — never hardcoded) ─────────────
 const FINNHUB_KEY = process.env.FINNHUB_KEY;
@@ -57,6 +58,27 @@ const wmDist = path.join(__dirname, 'worldmonitor', 'dist');
 if (fs.existsSync(wmDist)) {
   const wm = express();
 
+  // Push notification endpoints
+  wm.get('/api/push/vapid-public-key', (_req, res) => {
+    const key = pushService.getVapidPublicKey();
+    if (!key) return res.status(503).json({ error: 'Push not configured' });
+    res.json({ publicKey: key });
+  });
+
+  wm.post('/api/push/subscribe', express.json(), (req, res) => {
+    try {
+      pushService.addSubscription(req.body);
+      res.status(201).json({ ok: true });
+    } catch {
+      res.status(400).json({ error: 'Invalid subscription' });
+    }
+  });
+
+  wm.post('/api/push/unsubscribe', express.json(), (req, res) => {
+    pushService.removeSubscription(req.body.endpoint);
+    res.json({ ok: true });
+  });
+
   // RSS proxy — WorldMonitor fetches /api/rss-proxy?url=<feed> to avoid CORS
   wm.get('/api/rss-proxy', async (req, res) => {
     const feedUrl = req.query.url;
@@ -82,6 +104,7 @@ if (fs.existsSync(wmDist)) {
     res.sendFile(path.join(wmDist, 'index.html'));
   });
   startServer(wm, PORT_WM, '🌍 WorldMonitor      ');
+  pushService.init();
 } else {
   console.log(`  ⚠  WorldMonitor dist not found — run: npm run wm:build`);
 }

@@ -8,6 +8,9 @@ worldmonitor/node_modules/
 # WorldMonitor build output (generated on server, not committed)
 worldmonitor/dist/
 
+# Runtime data (generated on server)
+data/
+
 # Misc
 .DS_Store
 *.log

@@ -417,6 +417,11 @@ if (!('__TAURI_INTERNALS__' in window) && !('__TAURI__' in window) && 'serviceWo
           try { await registration.update(); } catch {}
         }, 5 * 60 * 1000);
         (window as unknown as Record<string, unknown>).__swUpdateInterval = swUpdateInterval;
+
+        // Subscribe to push notifications after SW is ready
+        import('./services/push-notifications').then(({ registerPushNotifications }) => {
+          void registerPushNotifications();
+        }).catch(() => { /* non-critical */ });
       })
       .catch((err) => {
         console.warn('[PWA] Service worker registration failed:', err);

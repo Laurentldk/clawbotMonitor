@@ -52,6 +52,62 @@ terminal.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+terminal.use(express.json());
+
+// ── AI PICKS ──────────────────────────────────────────────────
+terminal.post('/api/ai-picks', async (req, res) => {
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) return res.json({ error: 'ANTHROPIC_API_KEY not set in .env' });
+
+  const userPrompt = (req.body?.prompt || '').slice(0, 500).trim() ||
+    'Focus on current geopolitical tensions and sector rotation opportunities.';
+
+  // Fetch fresh market news for context
+  let headlines = '';
+  try {
+    const newsRes = await fetch(
+      `${FINNHUB_BASE}/news?category=general&token=${FINNHUB_KEY}`
+    );
+    const newsData = await newsRes.json();
+    if (Array.isArray(newsData)) {
+      headlines = newsData.slice(0, 20).map(n => `- ${n.headline}`).join('\n');
+    }
+  } catch { /* continue without news */ }
+
+  const systemPrompt = `You are a quantitative macro trader analyzing global markets.
+Based on current news and geopolitical data, pick exactly 10 tickers to go LONG and 10 to SHORT.
+Choose real, liquid, US-listed stocks or ETFs (NYSE/NASDAQ). Mix sectors.
+Respond ONLY with valid JSON — no markdown, no explanation outside JSON:
+{"long":[{"sym":"TICKER","reason":"one sentence","sector":"sector"}],"short":[{"sym":"TICKER","reason":"one sentence","sector":"sector"}]}`;
+
+  const userMessage = `Current market headlines:\n${headlines || 'No news available.'}\n\nUser focus: ${userPrompt}\n\nPick 10 LONG and 10 SHORT tickers with reasons.`;
+
+  try {
+    const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
+      }),
+    });
+    const aiData = await aiRes.json();
+    const raw = aiData?.content?.[0]?.text || '';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return res.json({ error: 'AI returned invalid format', raw });
+    const picks = JSON.parse(jsonMatch[0]);
+    res.json(picks);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 terminal.post('/api/trigger-brief', async (req, res) => {
   try {
     await pushService.triggerMorningBrief();

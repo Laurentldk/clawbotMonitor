@@ -63,7 +63,8 @@
     "geoHubs": "Geopolitical Hotspots",
     "polymarket": "Förutsägelser",
     "climate": "Klimatanomalier",
-    "liveWebcams": "Webbkameror",
+    "liveYouTube": "Webbkameror",
+    "pinnedWebcams": "Pinned Webcams",
     "securityAdvisories": "Säkerhetsvarningar",
     "orefSirens": "Israel Sirens",
     "telegramIntel": "Telegram Underrättelser",
@@ -72,7 +73,8 @@
     "gulfEconomies": "Gulfekonomierna",
     "gulfIndices": "Gulfindex",
     "gulfCurrencies": "Gulfvalutor",
-    "gulfOil": "Gulfolja"
+    "gulfOil": "Gulfolja",
+    "bigmac": "Real Big Mac Index"
   },
   "commands": {
     "prefixes": {
@@ -570,6 +572,8 @@
         "stockExchanges": "Börser",
         "financialCenters": "Finansiella centra",
         "centralBanks": "centralbanker",
+      "laborMarket": "Labor Market",
+      "metroUnemployment": "Metro Unemployment",
         "commodityHubs": "Råvaruhubbar",
         "gulfInvestments": "GCC-investeringar",
         "tradeRoutes": "Handelsrutter",
@@ -738,8 +742,8 @@
       "nuclear": "Kärnteknisk"
     },
     "community": {
-      "joinDiscussion": "Gå med i diskussionen",
-      "openDiscussion": "Öppna diskussion",
+      "joinDiscussion": "Help Shape What's Next",
+      "openDiscussion": "Join Discord",
       "dontShowAgain": "Visa inte igen",
       "sectionLabel": "Gemenskap"
     },
@@ -780,7 +784,8 @@
       "token": "Token",
       "mcap": "Börsv.",
       "vol24h": "24t volym",
-      "chg24h": "24h Ändr"
+      "chg24h": "24h Ändr",
+      "infoTooltip": "<strong>Stablecoins</strong> Peg health, market cap, and 24h volume for major USD-pegged tokens (USDT, USDC, DAI, BUSD). A broken peg signals systemic risk."
     },
     "status": {
       "dataFeeds": "Dataflöden",
@@ -1046,7 +1051,7 @@
       "noSignals": "Inga instabilitetssignaler upptäckta"
     },
     "gdeltIntel": {
-      "infoTooltip": "<strong>GDELT Intelligence</strong> Global nyhetsövervakning i realtid:<ul><li>Utvalda ämneskategorier (konflikter, cyber, etc.)</li><li>Artiklar från 100+ språk översatta</li><li>__Uppdateringar var 4____DEL: Projekt varje 4__5 minuter (gdeltproject.org)"
+      "infoTooltip": "<strong>News Intelligence</strong> Global nyhetsövervakning i realtid:<ul><li>Utvalda ämneskategorier (konflikter, cyber, etc.)</li><li>Artiklar från 100+ språk översatta</li><li>Uppdateringar var 15:e minut</li><li>14-day media tone &amp; volume trend per topic</li></ul>Källa: GDELT Project (gdeltproject.org)"
     },
     "telegramIntel": {
       "infoTooltip": "Realtidssignaler från övervakade Telegram OSINT-kanaler",
@@ -1059,7 +1064,9 @@
       "filterAlerts": "Varningar",
       "filterOsint": "OSINT",
       "filterPolitics": "Politik",
-      "filterMiddleeast": "Mellanöstern"
+      "filterMiddleeast": "Mellanöstern",
+      "live": "LIVE",
+      "viewSource": "Visa källa"
     },
     "investments": {
       "infoTooltip": "Databas över Saudiarabien och Förenade Arabemiratens utländska direktinvesteringar i global kritisk infrastruktur. Klicka på en rad för att flyga till investeringen på kartan.",
@@ -1220,7 +1227,10 @@
       "yes": "Ja",
       "no": "Nej",
       "tooltip": "<strong>Förutsägelsemarknader</strong><br>Marknader med riktiga pengar:<br><ul><li>Priserna speglar sannolikhetsuppskattningar</li><li>Högre volym = mer tillförlitlig signal</li><li>Fokus på geopolitiska och aktuella händelser</li></ul>Källa: Polymarket (polymarket.com)",
-      "error": "Kunde inte ladda prognoser"
+      "error": "Kunde inte ladda prognoser",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "gdelt": {
       "empty": "Inga nya artiklar om detta ämne"
@@ -1459,6 +1469,13 @@
     "supplyChain": {
       "chokepoints": "Flaskhalsar",
       "fredKeyMissing": "FRED API-nyckel krävs för fraktpriser — lägg till den i Inställningar. Flaskhalsar och mineraler tillgängliga utan nyckel.",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "Mineral",
       "minerals": "Mineraler",
       "noChokepoints": "Flaskhalsdata laddas...",
@@ -1496,6 +1513,45 @@
     "map": {
       "showMap": "Visa karta",
       "hideMap": "Dölj karta"
+    },
+    "internetDisruptions": {
+      "infoTooltip": "<strong>Internet Disruptions</strong> Real-time internet outages, DDoS attacks, and traffic anomalies from global network monitoring:<ul><li><strong>Outages</strong>: BGP-detected connectivity failures by country</li><li><strong>DDoS</strong>: Volumetric attack reports by protocol and vector</li><li><strong>Anomalies</strong>: Unusual traffic patterns from Cloudflare Radar</li></ul>"
+    },
+    "commodities": {
+      "infoTooltip": "<strong>Commodities</strong> Tradeable non-energy commodity tape focused on metals and materials. Energy prices live in Energy Complex; macro stress indicators live in Macro Stress."
+    },
+    "crypto": {
+      "infoTooltip": "<strong>Crypto</strong> Live prices, 24h changes, and volume for major cryptocurrencies. Data sourced from CoinGecko."
+    },
+    "gulfEconomies": {
+      "infoTooltip": "<strong>Gulf Economies</strong> Real-time Gulf stock indices, currency rates, and oil prices for GCC economies (Saudi Arabia, UAE, Kuwait, Qatar, Bahrain, Oman)."
+    },
+    "groceryBasket": {
+      "infoTooltip": "<strong>Grocery Index</strong> Global grocery basket price comparison across 24 countries — tracks real-world consumer goods inflation beyond headline CPI."
+    },
+    "bigmac": {
+      "infoTooltip": "<strong>Real Big Mac Index</strong> The Economist's Big Mac Index measures purchasing power parity by comparing McDonald's burger prices across countries. Updated when new data is published (quarterly/annually)."
+    },
+    "defiTokens": {
+      "infoTooltip": "<strong>DeFi Tokens</strong> Prices and 24h/7d performance for major decentralized finance protocol tokens — DEXes, lending platforms, and yield protocols."
+    },
+    "aiTokens": {
+      "infoTooltip": "<strong>AI Tokens</strong> Prices and 24h/7d performance for AI and machine learning sector tokens — compute networks, decentralized AI infrastructure, and data protocols."
+    },
+    "altTokens": {
+      "infoTooltip": "<strong>Alt Tokens</strong> Prices and 24h/7d performance for alternative and emerging crypto tokens outside the major-cap tiers."
+    },
+    "stockAnalysis": {
+      "infoTooltip": "<strong>Premium Stock Analysis</strong> AI-powered analysis for stocks in your watchlist — buy/hold/sell signals, price targets, key risks, and catalysts updated daily."
+    },
+    "stockBacktest": {
+      "infoTooltip": "<strong>Premium Backtesting</strong> Historical performance backtests for stocks in your watchlist — past returns, max drawdown, and volatility metrics."
+    },
+    "dailyMarketBrief": {
+      "infoTooltip": "<strong>Daily Market Brief</strong> AI-generated daily summary of global market conditions, key macro trends, and sector-level signals — refreshes each trading day."
+    },
+    "centralBankWatch": {
+      "infoTooltip": "<strong>Central Bank Watch</strong> Latest statements, rate decisions, and communications from the Federal Reserve, ECB, Bank of England, and other major central banks worldwide."
     }
   },
   "popups": {
@@ -1862,7 +1918,12 @@
       "usniIntel": "USNI Intel",
       "usniSource": "Source: USNI News Fleet Tracker",
       "approximatePosition": "Position approximate — based on USNI weekly report, not real-time AIS.",
-      "darkDescription": "⚠ Fartyget har blivit mörkt - AIS-signal förlorad. Kan indikera känsliga operationer."
+      "darkDescription": "⚠ Fartyget har blivit mörkt - AIS-signal förlorad. Kan indikera känsliga operationer.",
+      "recentTracking": "Recent Tracking",
+      "lastReport": "LATEST",
+      "nearChokepoint": "NEAR CHOKEPOINT",
+      "nearBase": "NEAR BASE",
+      "lastSeen": "LAST SEEN"
     },
     "militaryCluster": {
       "flightActivity": {

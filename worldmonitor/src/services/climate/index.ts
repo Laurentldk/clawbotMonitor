@@ -1,3 +1,4 @@
+import { getRpcBaseUrl } from '@/services/rpc-client';
 import {
   ClimateServiceClient,
   type ClimateAnomaly as ProtoClimateAnomaly,
@@ -13,10 +14,20 @@ import { getHydratedData } from '@/services/bootstrap';
 // lat/lon/severity/type fields they always used. The proto -> legacy
 // mapping happens internally in toDisplayAnomaly().
 export interface ClimateAnomaly {
+  /**
+   * A named geographic region or label where the anomaly is occurring
+   * (e.g., "Northern Europe", "Southeast Asia").
+   */
   zone: string;
   lat: number;
   lon: number;
+  /**
+   * The temperature deviation from the historical average, measured in degrees Celsius (°C).
+   */
   tempDelta: number;
+  /**
+   * The precipitation deviation from the historical average, measured in millimeters (mm).
+   */
   precipDelta: number;
   severity: 'normal' | 'moderate' | 'extreme';
   type: 'warm' | 'cold' | 'wet' | 'dry' | 'mixed';
@@ -28,7 +39,7 @@ export interface ClimateFetchResult {
   anomalies: ClimateAnomaly[];
 }
 
-const client = new ClimateServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
+const client = new ClimateServiceClient(getRpcBaseUrl(), { fetch: (...args) => globalThis.fetch(...args) });
 const breaker = createCircuitBreaker<ListClimateAnomaliesResponse>({ name: 'Climate Anomalies', cacheTtlMs: 10 * 60 * 1000, persistCache: true });
 
 const emptyClimateFallback: ListClimateAnomaliesResponse = { anomalies: [] };

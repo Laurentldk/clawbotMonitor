@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '@/services/runtime';
+import { toApiUrl } from '@/services/runtime';
 
 export interface GpsJamHex {
   h3: string;
@@ -25,13 +25,16 @@ let cachedData: GpsJamData | null = null;
 let cachedAt = 0;
 const CACHE_TTL = 5 * 60 * 1000;
 
+export function getCachedGpsInterference(): GpsJamData | null {
+  return cachedData;
+}
+
 export async function fetchGpsInterference(): Promise<GpsJamData | null> {
   const now = Date.now();
   if (cachedData && now - cachedAt < CACHE_TTL) return cachedData;
 
   try {
-    const base = getApiBaseUrl();
-    const resp = await fetch(`${base}/api/gpsjam`, {
+    const resp = await fetch(toApiUrl('/api/gpsjam'), {
       signal: AbortSignal.timeout(20_000),
     });
     if (!resp.ok) return cachedData;

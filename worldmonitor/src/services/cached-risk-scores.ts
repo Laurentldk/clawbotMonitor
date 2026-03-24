@@ -1,4 +1,5 @@
 import type { CountryScore, ComponentScores } from './country-instability';
+import { getRpcBaseUrl } from '@/services/rpc-client';
 import { setHasCachedScores } from './country-instability';
 import {
   IntelligenceServiceClient,
@@ -11,7 +12,7 @@ import { getHydratedData } from '@/services/bootstrap';
 
 // ---- Sebuf client ----
 
-const client = new IntelligenceServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
+const client = new IntelligenceServiceClient(getRpcBaseUrl(), { fetch: (...args) => globalThis.fetch(...args) });
 
 // ---- Legacy types (preserved for consumer compatibility) ----
 
@@ -173,6 +174,7 @@ const breaker = createCircuitBreaker<CachedRiskScores>({
   name: 'Risk Scores',
   cacheTtlMs: 30 * 60 * 1000,
   persistCache: true,
+  persistentStaleCeilingMs: LS_MAX_STALENESS_MS,
 });
 
 // Sync prime from localStorage (before async IndexedDB hydration)

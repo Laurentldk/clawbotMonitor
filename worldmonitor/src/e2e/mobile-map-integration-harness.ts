@@ -136,6 +136,8 @@ const layers = {
   miningSites: false,
   processingPlants: false,
   commodityPorts: false,
+  webcams: false,
+  weatherRadar: false,
 };
 
 await initI18n();

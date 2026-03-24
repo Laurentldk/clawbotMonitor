@@ -1,11 +1,12 @@
 import { getCorsHeaders, isDisallowedOrigin } from './_cors.js';
+import { jsonResponse } from './_json-response.js';
 
 export const config = { runtime: 'edge' };
 
 const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org/reverse';
 const CHROME_UA = 'WorldMonitor/2.0 (https://worldmonitor.app)';
 
-export default async function handler(req) {
+export default async function handler(req, ctx) {
   if (isDisallowedOrigin(req))
     return new Response('Forbidden', { status: 403 });
 
@@ -19,12 +20,9 @@ export default async function handler(req) {
 
   const latN = Number(lat);
   const lonN = Number(lon);
-  if (!lat || !lon || isNaN(latN) || isNaN(lonN)
+  if (!lat || !lon || Number.isNaN(latN) || Number.isNaN(lonN)
       || latN < -90 || latN > 90 || lonN < -180 || lonN > 180) {
-    return new Response(JSON.stringify({ error: 'valid lat (-90..90) and lon (-180..180) required' }), {
-      status: 400,
-      headers: { ...cors, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: 'valid lat (-90..90) and lon (-180..180) required' }, 400, cors);
   }
 
   const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
@@ -63,10 +61,7 @@ export default async function handler(req) {
     );
 
     if (!resp.ok) {
-      return new Response(JSON.stringify({ error: `Nominatim ${resp.status}` }), {
-        status: 502,
-        headers: { ...cors, 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: `Nominatim ${resp.status}` }, 502, cors);
     }
 
     const data = await resp.json();
@@ -77,11 +72,14 @@ export default async function handler(req) {
     const body = JSON.stringify(result);
 
     if (redisUrl && redisToken && country && code) {
-      fetch(redisUrl, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(['SET', cacheKey, body, 'EX', 604800]),
-      }).catch(() => {});
+      ctx.waitUntil(
+        fetch(redisUrl, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(['SET', cacheKey, body, 'EX', 604800]),
+          signal: AbortSignal.timeout(5000),
+        }).catch(() => {}),
+      );
     }
 
     return new Response(body, {
@@ -93,9 +91,6 @@ export default async function handler(req) {
       },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: 'Nominatim request failed' }), {
-      status: 502,
-      headers: { ...cors, 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: 'Nominatim request failed' }, 502, cors);
   }
 }

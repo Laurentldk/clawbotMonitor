@@ -7,7 +7,7 @@ const etfConfig = loadSharedConfig('etfs.json');
 loadEnvFile(import.meta.url);
 
 const CANONICAL_KEY = 'market:etf-flows:v1';
-const CACHE_TTL = 3600;
+const CACHE_TTL = 5400; // 90min — 1h buffer over 15min cron cadence (was 60min = 45min buffer)
 const YAHOO_DELAY_MS = 200;
 
 const ETF_LIST = etfConfig.btcSpot;
@@ -144,6 +144,6 @@ runSeed('market', 'etf-flows', CANONICAL_KEY, fetchEtfFlows, {
   ttlSeconds: CACHE_TTL,
   sourceVersion: 'yahoo-chart-5d',
 }).catch((err) => {
-  console.error('FATAL:', err.message || err);
+  const _cause = err.cause ? ` (cause: ${err.cause.message || err.cause.code || err.cause})` : ''; console.error('FATAL:', (err.message || err) + _cause);
   process.exit(1);
 });

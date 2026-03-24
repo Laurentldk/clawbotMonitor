@@ -1,4 +1,5 @@
 import type { AppContext, AppModule, CountryBriefSignals } from '@/app/app-context';
+import { getRpcBaseUrl } from '@/services/rpc-client';
 import type { TimelineEvent } from '@/components/CountryTimeline';
 import { CountryTimeline } from '@/components/CountryTimeline';
 import type {
@@ -34,6 +35,7 @@ import { mlWorker } from '@/services/ml-worker';
 import { isHeadlineMemoryEnabled } from '@/services/ai-flow-settings';
 import { t, getCurrentLanguage } from '@/services/i18n';
 import { trackCountrySelected, trackCountryBriefOpened } from '@/services/analytics';
+import { toApiUrl } from '@/services/runtime';
 import type { StrategicPosturePanel } from '@/components/StrategicPosturePanel';
 import type { NewsItem } from '@/types';
 import { getNearbyInfrastructure } from '@/services/related-assets';
@@ -113,10 +115,14 @@ export class CountryIntelManager implements AppModule {
     });
 
     this.ctx.map.onMapContextMenu((payload) => {
-      showMapContextMenu(payload.screenX, payload.screenY, [
-        { label: t('contextMenu.openCountryBrief'), action: () => this.openCountryBrief(payload.lat, payload.lon) },
-        { label: t('contextMenu.copyCoordinates'), action: () => navigator.clipboard.writeText(`${payload.lat.toFixed(5)}, ${payload.lon.toFixed(5)}`).catch(() => {}) },
-      ]);
+      const items = [];
+      if (payload.countryCode && payload.countryName) {
+        items.push({ label: t('contextMenu.openCountryBrief'), action: () => this.openCountryBriefByCode(payload.countryCode!, payload.countryName!) });
+      } else {
+        items.push({ label: t('contextMenu.openCountryBrief'), action: () => this.openCountryBrief(payload.lat, payload.lon) });
+      }
+      items.push({ label: t('contextMenu.copyCoordinates'), action: () => navigator.clipboard.writeText(`${payload.lat.toFixed(5)}, ${payload.lon.toFixed(5)}`).catch(() => {}) });
+      showMapContextMenu(payload.screenX, payload.screenY, items);
     });
 
     this.ctx.countryBriefPage.onClose(() => {
@@ -186,7 +192,7 @@ export class CountryIntelManager implements AppModule {
     this.ctx.countryBriefPage.updateMilitaryActivity?.(this.buildMilitarySummary(code, country));
     this.ctx.countryBriefPage.updateEconomicIndicators?.(this.buildEconomicIndicators(code, score, null));
 
-    const marketClient = new MarketServiceClient('', { fetch: (...args: Parameters<typeof globalThis.fetch>) => globalThis.fetch(...args) });
+    const marketClient = new MarketServiceClient(getRpcBaseUrl(), { fetch: (...args: Parameters<typeof globalThis.fetch>) => globalThis.fetch(...args) });
     const stockPromise = marketClient.getCountryStockIndex({ countryCode: code })
       .then((resp) => ({
         available: resp.available,
@@ -233,7 +239,7 @@ export class CountryIntelManager implements AppModule {
 
     this.ctx.countryBriefPage.updateInfrastructure(code);
 
-    const intelClient = new IntelligenceServiceClient('', {
+    const intelClient = new IntelligenceServiceClient(getRpcBaseUrl(), {
       fetch: (...args: Parameters<typeof globalThis.fetch>) => globalThis.fetch(...args),
     });
     intelClient.getCountryFacts({ countryCode: code })
@@ -356,7 +362,9 @@ export class CountryIntelManager implements AppModule {
           if (signals.cyberThreats > 0) lines.push(`🛡️ Cyber threat indicators: ${signals.cyberThreats}`);
           if (signals.aisDisruptions > 0) lines.push(`🚢 Maritime AIS disruptions: ${signals.aisDisruptions}`);
           if (signals.satelliteFires > 0) lines.push(`🔥 Satellite fire detections: ${signals.satelliteFires}`);
+          if (signals.radiationAnomalies > 0) lines.push(`☢️ Radiation anomalies: ${signals.radiationAnomalies}`);
           if (signals.temporalAnomalies > 0) lines.push(`⏱️ Temporal anomaly alerts: ${signals.temporalAnomalies}`);
+          if (signals.thermalEscalations > 0) lines.push(`🌡️ Thermal escalation clusters: ${signals.thermalEscalations}`);
           if (signals.earthquakes > 0) lines.push(t('countryBrief.fallback.recentEarthquakes', { count: String(signals.earthquakes) }));
           if (signals.orefHistory24h > 0) lines.push(`🚨 Sirens in past 24h: ${signals.orefHistory24h}`);
           if (context.stockIndex) lines.push(t('countryBrief.fallback.stockIndex', { value: context.stockIndex }));
@@ -397,7 +405,7 @@ export class CountryIntelManager implements AppModule {
       params.set('context', trimmed.slice(0, 2200));
     }
 
-    const resp = await fetch(`/api/intelligence/v1/get-country-intel-brief?${params.toString()}`, {
+    const resp = await fetch(toApiUrl(`/api/intelligence/v1/get-country-intel-brief?${params.toString()}`), {
       method: 'GET',
       headers: { Accept: 'application/json' },
       signal: this.ctx.countryBriefPage?.signal,
@@ -424,7 +432,7 @@ export class CountryIntelManager implements AppModule {
     }
 
     lines.push(
-      `Signals: critical_news=${signals.criticalNews}, protests=${signals.protests}, active_strikes=${signals.activeStrikes}, military_flights=${signals.militaryFlights}, military_vessels=${signals.militaryVessels}, outages=${signals.outages}, aviation_disruptions=${signals.aviationDisruptions}, travel_advisories=${signals.travelAdvisories}, oref_sirens=${signals.orefSirens}, oref_24h=${signals.orefHistory24h}, gps_jamming_hexes=${signals.gpsJammingHexes}, ais_disruptions=${signals.aisDisruptions}, satellite_fires=${signals.satelliteFires}, temporal_anomalies=${signals.temporalAnomalies}, cyber_threats=${signals.cyberThreats}, earthquakes=${signals.earthquakes}, conflict_events=${signals.conflictEvents}`,
+      `Signals: critical_news=${signals.criticalNews}, protests=${signals.protests}, active_strikes=${signals.activeStrikes}, military_flights=${signals.militaryFlights}, military_vessels=${signals.militaryVessels}, outages=${signals.outages}, aviation_disruptions=${signals.aviationDisruptions}, travel_advisories=${signals.travelAdvisories}, oref_sirens=${signals.orefSirens}, oref_24h=${signals.orefHistory24h}, gps_jamming_hexes=${signals.gpsJammingHexes}, ais_disruptions=${signals.aisDisruptions}, satellite_fires=${signals.satelliteFires}, radiation_anomalies=${signals.radiationAnomalies}, temporal_anomalies=${signals.temporalAnomalies}, cyber_threats=${signals.cyberThreats}, earthquakes=${signals.earthquakes}, conflict_events=${signals.conflictEvents}, thermal_escalations=${signals.thermalEscalations}`,
     );
 
     if (signals.travelAdvisoryMaxLevel) {
@@ -551,12 +559,14 @@ export class CountryIntelManager implements AppModule {
     const signalTypeCounts = {
       aisDisruptions: 0,
       satelliteFires: 0,
+      radiationAnomalies: 0,
       temporalAnomalies: 0,
     };
     if (countryCluster) {
       for (const s of countryCluster.signals) {
         if (s.type === 'ais_disruption') signalTypeCounts.aisDisruptions++;
         else if (s.type === 'satellite_fire') signalTypeCounts.satelliteFires++;
+        else if (s.type === 'radiation_anomaly') signalTypeCounts.radiationAnomalies++;
         else if (s.type === 'temporal_anomaly') signalTypeCounts.temporalAnomalies++;
       }
     }
@@ -648,6 +658,13 @@ export class CountryIntelManager implements AppModule {
       }).length;
     }
 
+    let thermalEscalations = 0;
+    if (this.ctx.intelligenceCache.thermalEscalation) {
+      thermalEscalations = this.ctx.intelligenceCache.thermalEscalation.clusters.filter(
+        (c) => c.countryCode.toUpperCase() === code && c.status !== 'normal',
+      ).length;
+    }
+
     return {
       criticalNews,
       protests,
@@ -656,6 +673,7 @@ export class CountryIntelManager implements AppModule {
       outages,
       aisDisruptions: signalTypeCounts.aisDisruptions,
       satelliteFires: signalTypeCounts.satelliteFires,
+      radiationAnomalies: signalTypeCounts.radiationAnomalies,
       temporalAnomalies: signalTypeCounts.temporalAnomalies > 0 ? signalTypeCounts.temporalAnomalies : globalTemporalAnomalies,
       cyberThreats,
       earthquakes,
@@ -670,6 +688,7 @@ export class CountryIntelManager implements AppModule {
       travelAdvisoryMaxLevel,
       gpsJammingHexes: (ciiData?.gpsJammingHighCount ?? 0) + (ciiData?.gpsJammingMediumCount ?? 0),
       isTier1,
+      thermalEscalations,
     };
   }
 
@@ -836,6 +855,7 @@ export class CountryIntelManager implements AppModule {
     if (type === 'protest') return 'PROTEST';
     if (type === 'internet_outage') return 'OUTAGE';
     if (type === 'satellite_fire') return 'DISASTER';
+    if (type === 'radiation_anomaly') return 'DISASTER';
     if (type === 'ais_disruption') return 'OUTAGE';
     if (type === 'active_strike') return 'MILITARY';
     if (type === 'temporal_anomaly') return 'CYBER';
@@ -847,6 +867,7 @@ export class CountryIntelManager implements AppModule {
     severity: 'low' | 'medium' | 'high',
   ): CountryDeepDiveSignalDetails['recentHigh'][number]['severity'] {
     if (type === 'active_strike' && severity === 'high') return 'critical';
+    if (type === 'radiation_anomaly' && severity === 'high') return 'critical';
     if (severity === 'high') return 'high';
     if (severity === 'medium') return 'medium';
     return 'low';

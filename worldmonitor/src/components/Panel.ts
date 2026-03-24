@@ -15,6 +15,7 @@ export interface PanelOptions {
   infoTooltip?: string;
   premium?: 'locked' | 'enhanced';
   closable?: boolean;
+  defaultRowSpan?: number;
 }
 
 const PANEL_SPANS_KEY = 'worldmonitor-panel-spans';
@@ -249,7 +250,7 @@ export class Panel {
       headerLeft.appendChild(this.newBadgeEl);
     }
 
-    if (isDesktopRuntime() && options.premium === 'enhanced' && !getSecretState('WORLDMONITOR_API_KEY').present) {
+    if (options.premium && !getSecretState('WORLDMONITOR_API_KEY').present) {
       const proBadge = h('span', { className: 'panel-pro-badge' }, t('premium.pro'));
       headerLeft.appendChild(proBadge);
     }
@@ -299,10 +300,15 @@ export class Panel {
     this.element.appendChild(this.colResizeHandle);
     this.setupColResizeHandlers();
 
-    // Restore saved span
+    // Apply default row span (before restore, so saved preferences win)
+    if (options.defaultRowSpan && options.defaultRowSpan > 1) {
+      this.element.classList.add(`span-${options.defaultRowSpan}`);
+    }
+
+    // Restore saved span (overrides default)
     const savedSpans = loadPanelSpans();
     const savedSpan = savedSpans[this.panelId];
-    if (savedSpan && savedSpan > 1) {
+    if (savedSpan !== undefined) {
       setSpanClass(this.element, savedSpan);
     }
 
@@ -667,6 +673,27 @@ export class Panel {
     return this.element;
   }
 
+  public isNearViewport(marginPx = 400): boolean {
+    if (!this.element.isConnected) return false;
+    if (typeof window === 'undefined') return true;
+
+    const style = window.getComputedStyle(this.element);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+
+    const rect = this.element.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+
+    if (rect.width === 0 || rect.height === 0) return false;
+
+    return (
+      rect.bottom >= -marginPx &&
+      rect.right >= -marginPx &&
+      rect.top <= viewportHeight + marginPx &&
+      rect.left <= viewportWidth + marginPx
+    );
+  }
+
   public showLoading(message = t('common.loading')): void {
     if (this._locked) return;
     this.setErrorState(false);
@@ -698,7 +725,7 @@ export class Panel {
     const children: (HTMLElement | string)[] = [radarEl, msgEl];
 
     if (this.retryCallback) {
-      const backoffSeconds = autoRetrySeconds ?? Math.min(15 * Math.pow(2, this.retryAttempt), 180);
+      const backoffSeconds = autoRetrySeconds ?? Math.min(15 * 2 ** this.retryAttempt, 180);
       this.retryAttempt++;
       let remaining = Math.round(backoffSeconds);
       const countdownEl = h('div', { className: 'panel-error-countdown' },
@@ -750,7 +777,7 @@ export class Panel {
 
     const ctaBtn = h('button', { type: 'button', className: 'panel-locked-cta' }, t('premium.joinWaitlist'));
     if (isDesktopRuntime()) {
-      ctaBtn.addEventListener('click', () => void invokeTauri<void>('open_settings_window_command').catch(() => {}));
+      ctaBtn.addEventListener('click', () => void invokeTauri<void>('open_url', { url: 'https://worldmonitor.app/pro' }).catch(() => window.open('https://worldmonitor.app/pro', '_blank')));
     } else {
       ctaBtn.addEventListener('click', () => window.open('https://worldmonitor.app/pro', '_blank'));
     }

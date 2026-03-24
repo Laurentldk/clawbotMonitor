@@ -7,7 +7,7 @@ const cryptoConfig = loadSharedConfig('crypto.json');
 loadEnvFile(import.meta.url);
 
 const CANONICAL_KEY = 'market:crypto:v1';
-const CACHE_TTL = 3600; // 1 hour
+const CACHE_TTL = 7200; // 2h — 1h buffer over 5min cron cadence (was 60min = 55min buffer)
 
 const CRYPTO_IDS = cryptoConfig.ids;
 const CRYPTO_META = cryptoConfig.meta;
@@ -120,6 +120,6 @@ runSeed('market', 'crypto', CANONICAL_KEY, fetchCryptoQuotes, {
   ttlSeconds: CACHE_TTL,
   sourceVersion: 'coingecko-markets',
 }).catch((err) => {
-  console.error('FATAL:', err.message || err);
+  const _cause = err.cause ? ` (cause: ${err.cause.message || err.cause.code || err.cause})` : ''; console.error('FATAL:', (err.message || err) + _cause);
   process.exit(1);
 });

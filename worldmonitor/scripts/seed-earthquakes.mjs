@@ -6,7 +6,7 @@ loadEnvFile(import.meta.url);
 
 const USGS_FEED_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson';
 const CANONICAL_KEY = 'seismology:earthquakes:v1';
-const CACHE_TTL = 3600; // 1 hour
+const CACHE_TTL = 21600; // 6h — 6x the 1h cron interval (was 2x = survived only 1 missed run)
 
 async function fetchEarthquakes() {
   const resp = await fetch(USGS_FEED_URL, {
@@ -45,6 +45,6 @@ runSeed('seismology', 'earthquakes', CANONICAL_KEY, fetchEarthquakes, {
   ttlSeconds: CACHE_TTL,
   sourceVersion: 'usgs-4.5-day',
 }).catch((err) => {
-  console.error('FATAL:', err.message || err);
+  const _cause = err.cause ? ` (cause: ${err.cause.message || err.cause.code || err.cause})` : ''; console.error('FATAL:', (err.message || err) + _cause);
   process.exit(1);
 });

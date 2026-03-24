@@ -2,6 +2,7 @@ import type { ConflictZone, Hotspot, NewsItem, MilitaryBase, StrategicWaterway, 
 import type { AirportDelayAlert, PositionSample } from '@/services/aviation';
 import type { Earthquake } from '@/services/earthquakes';
 import type { WeatherAlert } from '@/services/weather';
+import type { RadiationObservation } from '@/services/radiation';
 import { UNDERSEA_CABLES } from '@/config';
 import type { StartupHub, Accelerator, TechHQ, CloudRegion } from '@/config/tech-geo';
 import type { TechHubActivity } from '@/services/tech-activity';
@@ -10,11 +11,36 @@ import { escapeHtml, sanitizeUrl } from '@/utils/sanitize';
 import { isMobileDevice, getCSSColor } from '@/utils';
 import { t } from '@/services/i18n';
 import { fetchHotspotContext, formatArticleDate, extractDomain, type GdeltArticle } from '@/services/gdelt-intel';
+import { getWingbitsLiveFlight } from '@/services/wingbits';
+import { isFeatureAvailable } from '@/services/runtime-config';
 import { getNaturalEventIcon } from '@/services/eonet';
 import { getHotspotEscalation, getEscalationChange24h } from '@/services/hotspot-escalation';
 import { getCableHealthRecord } from '@/services/cable-health';
+import { nameToCountryCode } from '@/services/country-geometry';
+import { sparkline } from '@/utils/sparkline';
 
-export type PopupType = 'conflict' | 'hotspot' | 'earthquake' | 'weather' | 'base' | 'waterway' | 'apt' | 'cyberThreat' | 'nuclear' | 'economic' | 'irradiator' | 'pipeline' | 'cable' | 'cable-advisory' | 'repair-ship' | 'outage' | 'datacenter' | 'datacenterCluster' | 'ais' | 'protest' | 'protestCluster' | 'flight' | 'aircraft' | 'militaryFlight' | 'militaryVessel' | 'militaryFlightCluster' | 'militaryVesselCluster' | 'natEvent' | 'port' | 'spaceport' | 'mineral' | 'startupHub' | 'cloudRegion' | 'techHQ' | 'accelerator' | 'techEvent' | 'techHQCluster' | 'techEventCluster' | 'techActivity' | 'geoActivity' | 'stockExchange' | 'financialCenter' | 'centralBank' | 'commodityHub' | 'iranEvent' | 'gpsJamming';
+function formatPositionSource(source: string): string {
+  if (source === 'POSITION_SOURCE_WINGBITS') {
+    return '<a href="https://wingbits.com?utm_source=worldmonitor&utm_medium=referral&utm_campaign=worldmonitor" target="_blank" rel="noopener" style="color:inherit">wingbits.com</a>';
+  }
+  if (source === 'POSITION_SOURCE_OPENSKY') {
+    return '<a href="https://opensky-network.org" target="_blank" rel="noopener" style="color:inherit">opensky-network.org</a>';
+  }
+  return escapeHtml(source);
+}
+
+function fmtUtcTime(utc: string | undefined): string {
+  if (!utc) return '\u2014';
+  const d = new Date(utc.includes('T') ? utc : utc.replace(' ', 'T') + 'Z');
+  return isNaN(d.getTime()) ? '\u2014' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtDelayMin(min: number | undefined): string {
+  if (min === undefined || min === 0) return '';
+  return `<span style="color:${min > 0 ? '#f97316' : '#22c55e'};font-size:10px;margin-left:3px">${min > 0 ? '+' : ''}${min}m</span>`;
+}
+
+export type PopupType = 'conflict' | 'hotspot' | 'earthquake' | 'weather' | 'base' | 'waterway' | 'apt' | 'cyberThreat' | 'nuclear' | 'economic' | 'irradiator' | 'pipeline' | 'cable' | 'cable-advisory' | 'repair-ship' | 'outage' | 'datacenter' | 'datacenterCluster' | 'ais' | 'protest' | 'protestCluster' | 'flight' | 'aircraft' | 'militaryFlight' | 'militaryVessel' | 'militaryFlightCluster' | 'militaryVesselCluster' | 'natEvent' | 'port' | 'spaceport' | 'mineral' | 'startupHub' | 'cloudRegion' | 'techHQ' | 'accelerator' | 'techEvent' | 'techHQCluster' | 'techEventCluster' | 'techActivity' | 'geoActivity' | 'stockExchange' | 'financialCenter' | 'centralBank' | 'commodityHub' | 'iranEvent' | 'gpsJamming' | 'radiation';
 
 interface TechEventPopupData {
   id: string;
@@ -143,7 +169,7 @@ interface DatacenterClusterData {
 
 interface PopupData {
   type: PopupType;
-  data: ConflictZone | Hotspot | Earthquake | WeatherAlert | MilitaryBase | StrategicWaterway | APTGroup | CyberThreat | NuclearFacility | EconomicCenter | GammaIrradiator | Pipeline | UnderseaCable | CableAdvisory | RepairShip | InternetOutage | AIDataCenter | AisDisruptionEvent | SocialUnrestEvent | AirportDelayAlert | PositionSample | MilitaryFlight | MilitaryVessel | MilitaryFlightCluster | MilitaryVesselCluster | NaturalEvent | Port | Spaceport | CriticalMineralProject | StartupHub | CloudRegion | TechHQ | Accelerator | TechEventPopupData | TechHQClusterData | TechEventClusterData | ProtestClusterData | DatacenterClusterData | TechHubActivity | GeoHubActivity | StockExchangePopupData | FinancialCenterPopupData | CentralBankPopupData | CommodityHubPopupData | IranEventPopupData | GpsJammingPopupData;
+  data: ConflictZone | Hotspot | Earthquake | WeatherAlert | MilitaryBase | StrategicWaterway | APTGroup | CyberThreat | NuclearFacility | EconomicCenter | GammaIrradiator | Pipeline | UnderseaCable | CableAdvisory | RepairShip | InternetOutage | AIDataCenter | AisDisruptionEvent | SocialUnrestEvent | AirportDelayAlert | PositionSample | MilitaryFlight | MilitaryVessel | MilitaryFlightCluster | MilitaryVesselCluster | NaturalEvent | Port | Spaceport | CriticalMineralProject | StartupHub | CloudRegion | TechHQ | Accelerator | TechEventPopupData | TechHQClusterData | TechEventClusterData | ProtestClusterData | DatacenterClusterData | TechHubActivity | GeoHubActivity | StockExchangePopupData | FinancialCenterPopupData | CentralBankPopupData | CommodityHubPopupData | IranEventPopupData | GpsJammingPopupData | RadiationObservation;
   relatedNews?: NewsItem[];
   x: number;
   y: number;
@@ -289,6 +315,20 @@ export class MapPopup {
 
     this.popup.style.left = `${left}px`;
     this.popup.style.top = `${top}px`;
+  }
+
+  // Called after async content (e.g. Wingbits live data) makes the popup taller.
+  // Nudges the popup upward so it never extends below the viewport.
+  private clampPopupToViewport(): void {
+    if (!this.popup || this.isMobileSheet) return;
+    const rect = this.popup.getBoundingClientRect();
+    const bottomBuffer = 20;
+    const topBuffer = 60;
+    const overflow = rect.bottom - (window.innerHeight - bottomBuffer);
+    if (overflow > 0) {
+      const currentTop = Number.parseFloat(this.popup.style.top) || 0;
+      this.popup.style.top = `${Math.max(topBuffer, currentTop - overflow)}px`;
+    }
   }
 
   private handleOutsideClick = (e: Event) => {
@@ -472,9 +512,59 @@ export class MapPopup {
         return this.renderIranEventPopup(data.data as IranEventPopupData);
       case 'gpsJamming':
         return this.renderGpsJammingPopup(data.data as GpsJammingPopupData);
+      case 'radiation':
+        return this.renderRadiationPopup(data.data as RadiationObservation);
       default:
         return '';
     }
+  }
+
+  private renderRadiationPopup(observation: RadiationObservation): string {
+    const severityClass = observation.severity === 'spike' ? 'high' : 'medium';
+    const delta = `${observation.delta >= 0 ? '+' : ''}${observation.delta.toFixed(1)} ${escapeHtml(observation.unit)}`;
+    const provenance = formatRadiationSources(observation);
+    const confidence = formatRadiationConfidence(observation.confidence);
+    const flags = [
+      observation.corroborated ? 'Confirmed' : '',
+      observation.conflictingSources ? 'Conflicting sources' : '',
+      observation.convertedFromCpm ? 'CPM-derived component' : '',
+    ].filter(Boolean).join(' · ');
+    return `
+      <div class="popup-header outage">
+        <span class="popup-title">☢ ${escapeHtml(observation.location.toUpperCase())}</span>
+        <span class="popup-badge ${severityClass}">${escapeHtml(observation.severity.toUpperCase())}</span>
+        <button class="popup-close" aria-label="Close">×</button>
+      </div>
+      <div class="popup-body">
+        <div class="popup-stats">
+          <div class="popup-stat">
+            <span class="stat-label">Reading</span>
+            <span class="stat-value">${observation.value.toFixed(1)} ${escapeHtml(observation.unit)}</span>
+          </div>
+          <div class="popup-stat">
+            <span class="stat-label">Baseline</span>
+            <span class="stat-value">${observation.baselineValue.toFixed(1)} ${escapeHtml(observation.unit)}</span>
+          </div>
+          <div class="popup-stat">
+            <span class="stat-label">Delta</span>
+            <span class="stat-value">${delta}</span>
+          </div>
+          <div class="popup-stat">
+            <span class="stat-label">Confidence</span>
+            <span class="stat-value">${escapeHtml(confidence)}</span>
+          </div>
+          <div class="popup-stat">
+            <span class="stat-label">Sources</span>
+            <span class="stat-value">${escapeHtml(provenance)}</span>
+          </div>
+          <div class="popup-stat">
+            <span class="stat-label">Source count</span>
+            <span class="stat-value">${observation.sourceCount}</span>
+          </div>
+        </div>
+        <p class="popup-description">${escapeHtml(observation.country)} · z-score ${observation.zScore.toFixed(2)} · ${escapeHtml(observation.freshness)}${flags ? ` · ${escapeHtml(flags)}` : ''}</p>
+      </div>
+    `;
   }
 
 
@@ -589,6 +679,12 @@ export class MapPopup {
             <span class="trend-icon">${trendIcons[displayTrend] || ''}</span>
             <span class="trend-label">${escapeHtml(displayTrend.toUpperCase())}</span>
           </div>
+          ${dynamicScore?.history && dynamicScore.history.length >= 3 ? (() => {
+            const vals = dynamicScore.history.slice(-20).map(h => h.score);
+            const lastVal = vals[vals.length - 1] ?? 3;
+            const color = lastVal >= 4 ? '#f44336' : lastVal >= 3 ? '#ff9800' : '#4caf50';
+            return sparkline(vals, color, 80, 24, 'opacity:0.9');
+          })() : ''}
         </div>
         ${dynamicScore ? `
           <div class="escalation-breakdown">
@@ -783,6 +879,107 @@ export class MapPopup {
     }
   }
 
+  public async loadWingbitsLiveFlight(hexCode: string): Promise<void> {
+    if (!this.popup) return;
+
+    const section = this.popup.querySelector('.wingbits-live-section');
+    if (!section) return;
+
+    try {
+      const live = await getWingbitsLiveFlight(hexCode);
+
+      if (!this.popup || !section.isConnected) return;
+
+      if (!live) {
+        section.innerHTML = '';
+        return;
+      }
+
+      const parts: string[] = [];
+      let photoHtml = '';
+
+      // Photo — built separately so it renders at the bottom after route/times/stats
+      if (live.photoUrl) {
+        const photoSrc = sanitizeUrl(live.photoUrl);
+        if (photoSrc) {
+          const photoLink = live.photoLink ? sanitizeUrl(live.photoLink) : '#';
+          const credit = live.photoCredit ? `<span class="flight-photo-credit">\u00a9 ${escapeHtml(live.photoCredit)}</span>` : '';
+          photoHtml = `<div class="flight-photo"><a href="${photoLink}" target="_blank" rel="noopener"><img src="${photoSrc}" alt="${escapeHtml(live.callsign)}" style="width:100%;border-radius:4px;display:block"></a>${credit}</div>`;
+        }
+      }
+
+      // IATA callsign + airline name header
+      if (live.callsignIata) {
+        const name = live.airlineName ? ` <span style="font-size:12px;opacity:0.6;font-weight:400">${escapeHtml(live.airlineName)}</span>` : '';
+        parts.push(`<div style="font-weight:700;font-size:15px;margin:4px 0">${escapeHtml(live.callsignIata)}${name}</div>`);
+      }
+
+      // Route (FROM → TO)
+      if (live.depIata && live.arrIata) {
+        const terminal = live.arrTerminal ? `<span style="font-size:10px;opacity:0.5;margin-left:4px">T${escapeHtml(live.arrTerminal)}</span>` : '';
+        const duration = live.flightDurationMin ? `<span style="font-size:11px;opacity:0.6">${Math.floor(live.flightDurationMin / 60)}h${live.flightDurationMin % 60 > 0 ? ` ${live.flightDurationMin % 60}m` : ''}</span>` : '';
+        parts.push(`
+          <div class="flight-route" style="display:flex;align-items:center;gap:6px;margin:8px 0 4px;font-weight:700;font-size:18px">
+            <span>${escapeHtml(live.depIata)}</span>
+            <span style="font-size:12px;opacity:0.4;font-weight:400">&#9992;</span>
+            <span>${escapeHtml(live.arrIata)}${terminal}</span>
+            <span style="flex:1;text-align:right">${duration}</span>
+          </div>`);
+
+        const depSched = fmtUtcTime(live.depTimeUtc);
+        const arrSched = fmtUtcTime(live.arrTimeUtc);
+        const depEst = fmtUtcTime(live.depEstimatedUtc);
+        const arrEst = fmtUtcTime(live.arrEstimatedUtc);
+        const hasDelay = live.depDelayedMin !== 0 || live.arrDelayedMin !== 0;
+
+        parts.push(`
+          <div class="flight-times" style="font-size:11px;display:grid;grid-template-columns:1fr auto 1fr;gap:2px 8px;margin-bottom:6px;opacity:0.85">
+            <span style="opacity:0.5;font-size:10px;text-transform:uppercase">DEP</span>
+            <span></span>
+            <span style="opacity:0.5;font-size:10px;text-transform:uppercase;text-align:right">ARR</span>
+            <span style="opacity:0.5;font-size:10px">${t('popups.flight.scheduled') || 'Sched'}</span><span></span><span style="opacity:0.5;font-size:10px;text-align:right">${t('popups.flight.scheduled') || 'Sched'}</span>
+            <span>${depSched}</span><span style="opacity:0.3;text-align:center">\u2194</span><span style="text-align:right">${arrSched}</span>
+            ${hasDelay ? `
+            <span style="opacity:0.5;font-size:10px">${t('popups.flight.estimated') || 'Est'}</span><span></span><span style="opacity:0.5;font-size:10px;text-align:right">${t('popups.flight.estimated') || 'Est'}</span>
+            <span>${depEst}${fmtDelayMin(live.depDelayedMin)}</span><span style="opacity:0.3;text-align:center">\u2194</span><span style="text-align:right">${arrEst}${fmtDelayMin(live.arrDelayedMin)}</span>` : ''}
+          </div>`);
+      }
+
+      // Enrichment stats row
+      const rows: string[] = [];
+      if (live.registration) rows.push(`<div class="popup-stat"><span class="stat-label">Reg</span><span class="stat-value">${escapeHtml(live.registration)}</span></div>`);
+      if (live.model) rows.push(`<div class="popup-stat"><span class="stat-label">Model</span><span class="stat-value">${escapeHtml(live.model)}</span></div>`);
+      if (live.operator) rows.push(`<div class="popup-stat"><span class="stat-label">Operator</span><span class="stat-value">${escapeHtml(live.operator)}</span></div>`);
+      if (live.verticalRate !== 0) rows.push(`<div class="popup-stat"><span class="stat-label">Climb</span><span class="stat-value">${live.verticalRate > 0 ? '+' : ''}${Math.round(live.verticalRate)} fpm</span></div>`);
+
+      if (parts.length === 0 && rows.length === 0 && !photoHtml) {
+        section.innerHTML = '';
+        return;
+      }
+
+      const statsHtml = rows.length > 0 ? `<div class="popup-stats">${rows.join('')}</div>` : '';
+      section.innerHTML = `
+        <div class="popup-section-label" style="font-size:10px;opacity:0.5;text-transform:uppercase;letter-spacing:.05em;margin-top:8px">Live Data</div>
+        ${parts.join('')}
+        ${statsHtml}
+        ${photoHtml}
+      `;
+      // Clamp for text content immediately, then re-clamp once the photo is sized.
+      this.clampPopupToViewport();
+      if (photoHtml) {
+        const img = section.querySelector<HTMLImageElement>('img');
+        if (img && !img.complete) {
+          img.addEventListener('load', () => { this.clampPopupToViewport(); }, { once: true });
+          img.addEventListener('error', () => { this.clampPopupToViewport(); }, { once: true });
+        }
+      }
+    } catch {
+      if (section.isConnected) {
+        section.innerHTML = '';
+      }
+    }
+  }
+
   private renderGdeltArticle(article: GdeltArticle): string {
     const domain = article.source || extractDomain(article.url);
     const timeAgo = formatArticleDate(article.date);
@@ -871,7 +1068,7 @@ export class MapPopup {
 
   private getTimeUntil(date: Date | string): string {
     const d = date instanceof Date ? date : new Date(date);
-    if (isNaN(d.getTime())) return '—';
+    if (Number.isNaN(d.getTime())) return '—';
     const ms = d.getTime() - Date.now();
     if (ms <= 0) return t('popups.expired');
     const hours = Math.floor(ms / (1000 * 60 * 60));
@@ -1188,37 +1385,50 @@ export class MapPopup {
           </div>
           <div class="popup-stat">
             <span class="stat-label">${t('popups.source')}</span>
-            <span class="stat-value">${escapeHtml(pos.source)}</span>
+            <span class="stat-value">${formatPositionSource(pos.source)}</span>
           </div>
           <div class="popup-stat">
             <span class="stat-label">${t('popups.updated')}</span>
             <span class="stat-value">${pos.observedAt.toLocaleTimeString()}</span>
           </div>
         </div>
+${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"><div class="wingbits-live-loading" style="font-size:11px;opacity:0.5;padding:4px 0">Loading Wingbits live data…</div></div>' : ''}
       </div>
     `;
   }
 
   private renderAPTPopup(apt: APTGroup): string {
+    const tacticsHtml = apt.tactics?.length
+      ? `<div class="popup-tags">${apt.tactics.map(tactic => `<span class="popup-tag">${escapeHtml(tactic)}</span>`).join('')}</div>`
+      : '';
+    const sectorsHtml = apt.targetSectors?.length
+      ? `<div class="popup-subtitle" style="margin-top:6px">Targets: ${escapeHtml(apt.targetSectors.join(', '))}</div>`
+      : '';
+    const mitreHtml = apt.mitreId && apt.mitreUrl
+      ? `<div class="popup-stat"><span class="stat-label">MITRE</span><span class="stat-value"><a class="popup-link" href="${escapeHtml(apt.mitreUrl)}" target="_blank" rel="noopener">${escapeHtml(apt.mitreId)} ↗</a></span></div>`
+      : '';
+    const activeBadge = apt.active === false
+      ? `<span class="popup-badge low">Inactive</span>`
+      : `<span class="popup-badge high">${t('popups.threat')}</span>`;
+
     return `
       <div class="popup-header apt">
         <span class="popup-title">${escapeHtml(apt.name)}</span>
-        <span class="popup-badge high">${t('popups.threat')}</span>
+        ${activeBadge}
         <button class="popup-close" aria-label="Close">×</button>
       </div>
       <div class="popup-body">
-        <div class="popup-subtitle">${t('popups.aka')}: ${escapeHtml(apt.aka)}</div>
+        <div class="popup-subtitle">${escapeHtml(apt.aka)}</div>
         <div class="popup-stats">
           <div class="popup-stat">
             <span class="stat-label">${t('popups.sponsor')}</span>
             <span class="stat-value">${escapeHtml(apt.sponsor)}</span>
           </div>
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.origin')}</span>
-            <span class="stat-value">${apt.lat.toFixed(1)}°, ${apt.lon.toFixed(1)}°</span>
-          </div>
+          ${mitreHtml}
         </div>
-        <p class="popup-description">${t('popups.apt.description')}</p>
+        ${apt.description ? `<p class="popup-description">${escapeHtml(apt.description)}</p>` : ''}
+        ${tacticsHtml}
+        ${sectorsHtml}
       </div>
     `;
   }
@@ -2104,6 +2314,20 @@ export class MapPopup {
     const aircraftType = escapeHtml(typeLabels[flight.aircraftType] || flight.aircraftType);
     const squawk = flight.squawk ? escapeHtml(flight.squawk) : '';
     const note = flight.note ? escapeHtml(flight.note) : '';
+    const registration = flight.registration ? escapeHtml(flight.registration) : '';
+    const aircraftModel = flight.aircraftModel ? escapeHtml(flight.aircraftModel) : '';
+
+    const climbRateStat = flight.verticalRate !== undefined && flight.verticalRate !== 0 ? `
+          <div class="popup-stat">
+            <span class="stat-label">${t('popups.militaryFlight.climbRate')}</span>
+            <span class="stat-value">${flight.verticalRate > 0 ? '+' : ''}${Math.round(flight.verticalRate)} fpm</span>
+          </div>` : '';
+
+    const enrichedStats = flight.enriched ? [
+      flight.enriched.manufacturer ? `<div class="popup-stat"><span class="stat-label">${t('popups.militaryFlight.manufacturer')}</span><span class="stat-value">${escapeHtml(flight.enriched.manufacturer)}</span></div>` : '',
+      flight.enriched.owner ? `<div class="popup-stat"><span class="stat-label">${t('popups.militaryFlight.owner')}</span><span class="stat-value">${escapeHtml(flight.enriched.owner)}</span></div>` : '',
+      flight.enriched.builtYear ? `<div class="popup-stat"><span class="stat-label">${t('popups.militaryFlight.builtYear')}</span><span class="stat-value">${escapeHtml(flight.enriched.builtYear)}</span></div>` : '',
+    ].join('') : '';
 
     return `
       <div class="popup-header military-flight ${flight.operator}">
@@ -2113,6 +2337,7 @@ export class MapPopup {
       </div>
       <div class="popup-body">
         <div class="popup-subtitle">${operatorLabel}</div>
+        ${registration || aircraftModel ? `<div class="popup-subtitle" style="opacity:0.7;font-size:11px;margin-top:-4px">${[registration, aircraftModel].filter(Boolean).join(' · ')}</div>` : ''}
         <div class="popup-stats">
           <div class="popup-stat">
             <span class="stat-label">${t('popups.militaryFlight.altitude')}</span>
@@ -2126,6 +2351,7 @@ export class MapPopup {
             <span class="stat-label">${t('popups.militaryFlight.heading')}</span>
             <span class="stat-value">${Math.round(flight.heading)}°</span>
           </div>
+          ${climbRateStat}
           <div class="popup-stat">
             <span class="stat-label">${t('popups.militaryFlight.hexCode')}</span>
             <span class="stat-value">${hexCode}</span>
@@ -2140,11 +2366,56 @@ export class MapPopup {
             <span class="stat-value">${squawk}</span>
           </div>
           ` : ''}
+          ${enrichedStats}
         </div>
         ${flight.note ? `<p class="popup-description">${note}</p>` : ''}
+${isFeatureAvailable('wingbitsEnrichment') ? '<div class="wingbits-live-section"><div class="wingbits-live-loading" style="font-size:11px;opacity:0.5;padding:4px 0">Loading Wingbits live data…</div></div>' : ''}
         <div class="popup-attribution">${t('popups.militaryFlight.attribution')}</div>
       </div>
     `;
+  }
+
+  private getFlagEmoji(countryCode: string): string {
+    if (!countryCode || countryCode.length !== 2) return '';
+    const codePoints = countryCode
+      .toUpperCase()
+      .split('')
+      .map(char => 127397 + char.charCodeAt(0));
+    try {
+      return String.fromCodePoint(...codePoints);
+    } catch {
+      return '';
+    }
+  }
+
+  private static readonly OPERATOR_COUNTRY_MAP: Record<string, string> = {
+    usn: 'US', usaf: 'US', usmc: 'US', usa: 'US', uscg: 'US',
+    rn: 'GB', raf: 'GB',
+    plan: 'CN', plaaf: 'CN',
+    vks: 'RU', ruf: 'RU',
+    faf: 'FR', fn: 'FR',
+    gaf: 'DE',
+    iaf: 'IL',
+    jmsdf: 'JP',
+    rokn: 'KR',
+  };
+
+  private getOperatorCountryCode(vessel: { operator: string; operatorCountry?: string }): string {
+    return (vessel.operatorCountry ? nameToCountryCode(vessel.operatorCountry) : null)
+      || MapPopup.OPERATOR_COUNTRY_MAP[vessel.operator]
+      || '';
+  }
+
+  private formatCoord(lat: number, lon: number): string {
+    const ns = lat >= 0 ? 'N' : 'S';
+    const ew = lon >= 0 ? 'E' : 'W';
+    return `${Math.abs(lat).toFixed(3)}°${ns}, ${Math.abs(lon).toFixed(3)}°${ew}`;
+  }
+
+  private renderClusterVesselItem(v: MilitaryVessel): string {
+    const code = this.getOperatorCountryCode(v);
+    const flag = code ? this.getFlagEmoji(code) : '';
+    return `<div class="cluster-vessel-item">${flag ? `<span class="flag-icon-small">${flag}</span> ` : ''}${escapeHtml(v.name)} - ${escapeHtml(v.vesselType)}</div>`;
   }
 
   private renderMilitaryVesselPopup(vessel: MilitaryVessel): string {
@@ -2177,6 +2448,10 @@ export class MapPopup {
       ? `<span class="popup-badge high">${t('popups.militaryVessel.aisDark')}</span>`
       : '';
 
+    const dataSourceBadge = vessel.usniSource
+      ? `<span class="popup-badge" style="background:rgba(255,170,50,0.15);border:1px solid rgba(255,170,50,0.5);color:#ffaa44;">${t('popups.militaryVessel.estPosition')}</span>`
+      : `<span class="popup-badge" style="background:rgba(68,255,136,0.15);border:1px solid rgba(68,255,136,0.5);color:#44ff88;">${t('popups.militaryVessel.aisLive')}</span>`;
+
     // USNI deployment status badge
     const deploymentBadge = vessel.usniDeploymentStatus && vessel.usniDeploymentStatus !== 'unknown'
       ? `<span class="popup-badge ${vessel.usniDeploymentStatus === 'deployed' ? 'high' : vessel.usniDeploymentStatus === 'underway' ? 'elevated' : 'low'}">${vessel.usniDeploymentStatus.toUpperCase().replace('-', ' ')}</span>`
@@ -2197,33 +2472,75 @@ export class MapPopup {
     const vesselHull = vessel.hullNumber ? escapeHtml(vessel.hullNumber) : '';
     const vesselNote = vessel.note ? escapeHtml(vessel.note) : '';
 
+    const countryCode = this.getOperatorCountryCode(vessel);
+    const flagEmoji = countryCode ? this.getFlagEmoji(countryCode) : '';
+
+    const lastSeenStr = vessel.lastAisUpdate
+      ? `${new Date(vessel.lastAisUpdate).toLocaleString()}${vessel.aisGapMinutes ? ` (${vessel.aisGapMinutes}m ago)` : ''}`
+      : t('popups.unknown');
+
+    const recentTrack = vessel.track && vessel.track.length > 0
+      ? `<div class="popup-section">
+          <details>
+            <summary>${t('popups.militaryVessel.recentTracking')}</summary>
+            <div class="popup-section-content">
+              <div class="vessel-history-list">
+                ${vessel.track.slice(-5).reverse().map((tp, i) => `
+                  <div class="vessel-history-item">
+                    <span class="history-point">${this.formatCoord(tp[0], tp[1])}</span>
+                    ${i === 0 ? `<span class="history-tag">${t('popups.militaryVessel.lastReport')}</span>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </details>
+        </div>`
+      : '';
+
+    const usniIntel = (vessel.usniActivityDescription || vessel.usniRegion || vessel.usniStrikeGroup) ? `
+      <div class="popup-section usni-intel-section">
+        <div class="section-header usni">
+          <span class="section-label">${t('popups.militaryVessel.usniIntel')}</span>
+        </div>
+        <div class="usni-intel-content">
+          ${vessel.usniStrikeGroup ? `<div class="usni-field"><strong>${t('popups.militaryVessel.strikeGroup')}:</strong> ${escapeHtml(vessel.usniStrikeGroup)}</div>` : ''}
+          ${vessel.usniRegion ? `<div class="usni-field"><strong>${t('popups.militaryVessel.region')}:</strong> ${escapeHtml(vessel.usniRegion)}</div>` : ''}
+          ${vessel.usniActivityDescription ? `<p class="usni-description">${escapeHtml(vessel.usniActivityDescription)}</p>` : ''}
+          ${vessel.usniArticleUrl && sanitizeUrl(vessel.usniArticleUrl) ? `
+            <div class="usni-source-row">
+              <a href="${sanitizeUrl(vessel.usniArticleUrl)}" target="_blank" rel="noopener noreferrer" class="usni-link">
+                ${t('popups.militaryVessel.usniSource')} ${vessel.usniArticleDate ? `(${new Date(vessel.usniArticleDate).toLocaleDateString()})` : ''}
+              </a>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    ` : '';
+
     return `
       <div class="popup-header military-vessel ${vessel.operator}">
-        <span class="popup-title">${vesselName}</span>
-        ${darkWarning}
-        ${deploymentBadge}
-        <span class="popup-badge elevated">${vesselBadgeType}</span>
+        <div class="popup-title-row">
+          <span class="popup-title">${vesselName}</span>
+          ${vessel.hullNumber ? `<span class="hull-badge">${vesselHull}</span>` : ''}
+        </div>
+        <div class="popup-badges">
+          ${darkWarning}
+          ${dataSourceBadge}
+          ${deploymentBadge}
+          <span class="popup-badge elevated">${vesselBadgeType}</span>
+        </div>
         <button class="popup-close" aria-label="Close">×</button>
       </div>
       <div class="popup-body">
-        <div class="popup-subtitle">${vesselOperator}</div>
+        <div class="popup-subtitle">
+          ${flagEmoji ? `<span class="flag-icon">${flagEmoji}</span>` : ''}
+          <span class="operator-label">${vesselOperator}</span>
+        </div>
         <div class="popup-stats">
           <div class="popup-stat">
             <span class="stat-label">${t('popups.type')}</span>
             <span class="stat-value">${vesselTypeLabel}</span>
           </div>
-          ${vessel.usniRegion ? `
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.militaryVessel.region')}</span>
-            <span class="stat-value">${escapeHtml(vessel.usniRegion)}</span>
-          </div>
-          ` : ''}
-          ${vessel.usniStrikeGroup ? `
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.militaryVessel.strikeGroup')}</span>
-            <span class="stat-value">${escapeHtml(vessel.usniStrikeGroup)}</span>
-          </div>
-          ` : ''}
           <div class="popup-stat">
             <span class="stat-label">${t('popups.militaryVessel.speed')}</span>
             <span class="stat-value">${vessel.speed} kts</span>
@@ -2238,18 +2555,31 @@ export class MapPopup {
             <span class="stat-value">${vesselMmsi}</span>
           </div>
           ` : ''}
-          ${vessel.hullNumber ? `
-          <div class="popup-stat">
-            <span class="stat-label">${t('popups.militaryVessel.hull')}</span>
-            <span class="stat-value">${vesselHull}</span>
+          ${vessel.nearChokepoint ? `
+          <div class="popup-stat warning">
+            <span class="stat-label">${t('popups.militaryVessel.nearChokepoint')}</span>
+            <span class="stat-value">${escapeHtml(vessel.nearChokepoint)}</span>
           </div>
           ` : ''}
+          ${vessel.nearBase ? `
+          <div class="popup-stat">
+            <span class="stat-label">${t('popups.militaryVessel.nearBase')}</span>
+            <span class="stat-value">${escapeHtml(vessel.nearBase)}</span>
+          </div>
+          ` : ''}
+          <div class="popup-stat full-width">
+            <span class="stat-label">${t('popups.militaryVessel.lastSeen')}</span>
+            <span class="stat-value">${lastSeenStr}</span>
+          </div>
         </div>
-        ${vessel.usniActivityDescription ? `<p class="popup-description"><strong>${t('popups.militaryVessel.usniIntel')}:</strong> ${escapeHtml(vessel.usniActivityDescription)}</p>` : ''}
+
+        ${usniIntel}
+        ${recentTrack}
+
         ${vessel.note ? `<p class="popup-description">${vesselNote}</p>` : ''}
         ${vessel.isDark ? `<p class="popup-description alert">${t('popups.militaryVessel.darkDescription')}</p>` : ''}
         ${vessel.usniSource ? `<p class="popup-description" style="opacity:0.7;font-size:0.85em">${t('popups.militaryVessel.approximatePosition')}</p>` : ''}
-        ${vessel.usniArticleUrl ? `<div class="popup-attribution"><a href="${escapeHtml(vessel.usniArticleUrl)}" target="_blank" rel="noopener">${t('popups.militaryVessel.usniSource')}${vessel.usniArticleDate ? ` (${new Date(vessel.usniArticleDate).toLocaleDateString()})` : ''}</a></div>` : ''}
+        ${vessel.usniArticleUrl && !usniIntel && sanitizeUrl(vessel.usniArticleUrl) ? `<div class="popup-attribution"><a href="${sanitizeUrl(vessel.usniArticleUrl)}" target="_blank" rel="noopener noreferrer">${t('popups.militaryVessel.usniSource')}${vessel.usniArticleDate ? ` (${new Date(vessel.usniArticleDate).toLocaleDateString()})` : ''}</a></div>` : ''}
       </div>
     `;
   }
@@ -2335,14 +2665,21 @@ export class MapPopup {
     const clusterName = escapeHtml(cluster.name);
     const activityTypeLabel = escapeHtml(activityType.toUpperCase());
     const region = cluster.region ? escapeHtml(cluster.region) : '';
+
+    const opCounts: Record<string, number> = {};
+    cluster.vessels.forEach(v => { opCounts[v.operator] = (opCounts[v.operator] || 0) + 1; });
+    const dominantOp = Object.entries(opCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const dominantCode = dominantOp ? (MapPopup.OPERATOR_COUNTRY_MAP[dominantOp] || '') : '';
+    const dominantFlag = dominantCode ? this.getFlagEmoji(dominantCode) : '';
+
     const visibleVessels = cluster.vessels
       .slice(0, 5)
-      .map(v => `<div class="cluster-vessel-item">${escapeHtml(v.name)} - ${escapeHtml(v.vesselType)}</div>`)
+      .map(v => this.renderClusterVesselItem(v))
       .join('');
     const hiddenVessels = cluster.vessels.length > 5
       ? cluster.vessels
           .slice(5)
-          .map(v => `<div class="cluster-vessel-item">${escapeHtml(v.name)} - ${escapeHtml(v.vesselType)}</div>`)
+          .map(v => this.renderClusterVesselItem(v))
           .join('')
       : '';
     const hiddenCount = cluster.vessels.length - 5;
@@ -2360,7 +2697,7 @@ export class MapPopup {
         <button class="popup-close" aria-label="Close">×</button>
       </div>
       <div class="popup-body">
-        <div class="popup-subtitle">${activityLabels[activityType] || t('popups.militaryCluster.vesselActivity.unknown')}</div>
+        <div class="popup-subtitle">${dominantFlag ? `<span class="flag-icon">${dominantFlag}</span> ` : ''}${activityLabels[activityType] || t('popups.militaryCluster.vesselActivity.unknown')}</div>
         <div class="popup-stats">
           <div class="popup-stat">
             <span class="stat-label">${t('popups.militaryCluster.vessels')}</span>
@@ -2814,5 +3151,21 @@ export class MapPopup {
         </div>
       </div>
     `;
+  }
+}
+
+function formatRadiationSources(observation: RadiationObservation): string {
+  const uniqueSources = [...new Set(observation.contributingSources)];
+  return uniqueSources.length > 0 ? uniqueSources.join(' + ') : observation.source;
+}
+
+function formatRadiationConfidence(confidence: RadiationObservation['confidence']): string {
+  switch (confidence) {
+    case 'high':
+      return 'High';
+    case 'medium':
+      return 'Medium';
+    default:
+      return 'Low';
   }
 }

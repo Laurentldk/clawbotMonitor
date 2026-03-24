@@ -6,7 +6,7 @@ loadEnvFile(import.meta.url);
 
 const API_BASE = 'https://api.usaspending.gov/api/v2';
 const CANONICAL_KEY = 'economic:spending:v1';
-const CACHE_TTL = 3600; // 1 hour
+const CACHE_TTL = 7200; // 2h — 1h buffer over 1h cron cadence (was 1h = 0 buffer)
 
 const AWARD_TYPE_MAP = {
   'A': 'contract', 'B': 'contract', 'C': 'contract', 'D': 'contract',
@@ -58,7 +58,7 @@ async function fetchSpending() {
     recipientName: String(r['Recipient Name'] || 'Unknown'),
     amount: Number(r['Award Amount']) || 0,
     agency: String(r['Awarding Agency'] || 'Unknown'),
-    description: String(r['Description'] || '').slice(0, 200),
+    description: String(r.Description || '').slice(0, 200),
     startDate: String(r['Start Date'] || ''),
     awardType: AWARD_TYPE_MAP[String(r['Award Type'] || '')] || 'other',
   }));
@@ -83,6 +83,6 @@ runSeed('economic', 'spending', CANONICAL_KEY, fetchSpending, {
   ttlSeconds: CACHE_TTL,
   sourceVersion: 'usaspending-v2',
 }).catch((err) => {
-  console.error('FATAL:', err.message || err);
+  const _cause = err.cause ? ` (cause: ${err.cause.message || err.cause.code || err.cause})` : ''; console.error('FATAL:', (err.message || err) + _cause);
   process.exit(1);
 });

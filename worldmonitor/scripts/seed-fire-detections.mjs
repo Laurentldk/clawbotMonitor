@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { loadEnvFile, maskToken, runSeed, CHROME_UA, sleep } from './_seed-utils.mjs';
+import { loadEnvFile, runSeed, CHROME_UA, sleep } from './_seed-utils.mjs';
 
 loadEnvFile(import.meta.url);
 
@@ -112,7 +112,7 @@ async function main() {
     process.exit(0);
   }
 
-  console.log(`  FIRMS key: ${maskToken(apiKey)}`);
+  console.log('  FIRMS key configured');
 
   await runSeed('wildfire', 'fires', CANONICAL_KEY, () => fetchAllRegions(apiKey), {
     validateFn: (data) => Array.isArray(data?.fireDetections) && data.fireDetections.length > 0,
@@ -123,6 +123,6 @@ async function main() {
 }
 
 main().catch(err => {
-  console.error('FATAL:', err.message || err);
+  const _cause = err.cause ? ` (cause: ${err.cause.message || err.cause.code || err.cause})` : ''; console.error('FATAL:', (err.message || err) + _cause);
   process.exit(1);
 });

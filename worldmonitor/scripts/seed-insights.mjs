@@ -2,12 +2,30 @@
 
 import { loadEnvFile, CHROME_UA, getRedisCredentials, runSeed } from './_seed-utils.mjs';
 import { clusterItems, selectTopStories } from './_clustering.mjs';
+import { extractCountryCode } from './shared/geo-extract.mjs';
 
 loadEnvFile(import.meta.url);
 
 const CANONICAL_KEY = 'news:insights:v1';
 const DIGEST_KEY = 'news:digest:v1:full:en';
-const CACHE_TTL = 1800; // 30 min — matches health maxStaleMin; survives missed cron runs
+
+// Digest items store proto enum strings (THREAT_LEVEL_HIGH etc.) from toProtoItem().
+// Normalize to client-side lowercase values before propagating into insights output.
+const PROTO_TO_LEVEL = {
+  THREAT_LEVEL_CRITICAL: 'critical',
+  THREAT_LEVEL_HIGH: 'high',
+  THREAT_LEVEL_MEDIUM: 'medium',
+  THREAT_LEVEL_LOW: 'low',
+  THREAT_LEVEL_UNSPECIFIED: 'info',
+};
+
+function normalizeThreat(threat) {
+  if (!threat) return undefined;
+  const level = PROTO_TO_LEVEL[threat.level] ?? threat.level;
+  return { ...threat, level };
+}
+
+const CACHE_TTL = 10800; // 3h — 6x the 30 min cron interval (was 1x = key expired on any missed run)
 const MAX_HEADLINES = 10;
 const MAX_HEADLINE_LEN = 500;
 const GROQ_MODEL = 'llama-3.1-8b-instant';
@@ -56,8 +74,23 @@ async function readExistingInsights() {
   return data.result ? JSON.parse(data.result) : null;
 }
 
-// Provider config — mirrors server/worldmonitor/news/v1/_shared.ts getProviderCredentials()
+// Provider config — mirrors server/_shared/llm.ts getProviderCredentials()
+// Order: ollama → groq → openrouter (canonical chain)
 const LLM_PROVIDERS = [
+  {
+    name: 'ollama',
+    envKey: 'OLLAMA_API_URL',
+    apiUrlFn: (baseUrl) => new URL('/v1/chat/completions', baseUrl).toString(),
+    model: () => process.env.OLLAMA_MODEL || 'llama3.1:8b',
+    headers: (_key) => {
+      const h = { 'Content-Type': 'application/json', 'User-Agent': CHROME_UA };
+      const apiKey = process.env.OLLAMA_API_KEY;
+      if (apiKey) h.Authorization = `Bearer ${apiKey}`;
+      return h;
+    },
+    extraBody: { think: false },
+    timeout: 25_000,
+  },
   {
     name: 'groq',
     envKey: 'GROQ_API_KEY',
@@ -71,22 +104,8 @@ const LLM_PROVIDERS = [
     envKey: 'OPENROUTER_API_KEY',
     apiUrl: 'https://openrouter.ai/api/v1/chat/completions',
     model: 'google/gemini-2.5-flash',
-    headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://worldmonitor.app', 'X-Title': 'WorldMonitor', 'User-Agent': CHROME_UA }),
+    headers: (key) => ({ 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://worldmonitor.app', 'X-Title': 'World Monitor', 'User-Agent': CHROME_UA }),
     timeout: 20_000,
-  },
-  {
-    name: 'ollama',
-    envKey: 'OLLAMA_API_URL',
-    apiUrlFn: (baseUrl) => new URL('/v1/chat/completions', baseUrl).toString(),
-    model: () => process.env.OLLAMA_MODEL || 'llama3.1:8b',
-    headers: (_key) => {
-      const h = { 'Content-Type': 'application/json', 'User-Agent': CHROME_UA };
-      const apiKey = process.env.OLLAMA_API_KEY;
-      if (apiKey) h['Authorization'] = `Bearer ${apiKey}`;
-      return h;
-    },
-    extraBody: { think: false },
-    timeout: 25_000,
   },
 ];
 
@@ -158,7 +177,6 @@ Rules:
       return { text, model: json.model || model, provider: provider.name };
     } catch (err) {
       console.warn(`  ${provider.name} failed: ${err.message}`);
-      continue;
     }
   }
 
@@ -246,6 +264,7 @@ async function fetchInsights() {
     pubDate: item.pubDate || item.publishedAt || item.date || new Date().toISOString(),
     isAlert: item.isAlert || false,
     tier: item.tier,
+    threat: normalizeThreat(item.threat),
   })).filter(item => item.title.length > 10);
 
   const clusters = clusterItems(normalizedItems);
@@ -280,17 +299,25 @@ async function fetchInsights() {
   const fastMovingCount = 0; // velocity not available in digest items
 
   const enrichedStories = topStories.map(story => {
-    const { category, threatLevel } = categorizeStory(story.primaryTitle);
+    // Use digest threat when present and not keyword-sourced (keyword threat uses old taxonomy).
+    // Fall back to categorizeStory() for legacy/incomplete payloads.
+    const hasDigestThreat = story.threat?.level && story.threat?.source !== 'keyword';
+    const { category, threatLevel } = hasDigestThreat
+      ? { category: story.threat.category ?? 'general', threatLevel: story.threat.level }
+      : categorizeStory(story.primaryTitle);
+    const countryCode = extractCountryCode(story.primaryTitle) ?? null;
     return {
       primaryTitle: story.primaryTitle,
       primarySource: story.primarySource,
       primaryLink: story.primaryLink,
+      pubDate: story.pubDate,
       sourceCount: story.sourceCount,
       importanceScore: story.importanceScore,
       velocity: { level: 'normal', sourcesPerHour: 0 },
       isAlert: story.isAlert,
       category,
       threatLevel,
+      countryCode,
     };
   });
 
@@ -327,7 +354,7 @@ runSeed('news', 'insights', CANONICAL_KEY, fetchInsights, {
   ttlSeconds: CACHE_TTL,
   sourceVersion: 'digest-clustering-v1',
 }).catch((err) => {
-  console.error('FATAL:', err.message || err);
+  const _cause = err.cause ? ` (cause: ${err.cause.message || err.cause.code || err.cause})` : ''; console.error('FATAL:', (err.message || err) + _cause);
   // Exit gracefully for cron — health endpoint flags stale data via seed-meta.
   process.exit(0);
 });

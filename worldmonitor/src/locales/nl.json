@@ -63,7 +63,8 @@
     "geoHubs": "Geopolitical Hotspots",
     "polymarket": "Voorspellingen",
     "climate": "Klimaatafwijkingen",
-    "liveWebcams": "Live Webcams",
+    "liveYouTube": "Live Webcams",
+    "pinnedWebcams": "Pinned Webcams",
     "securityAdvisories": "Veiligheidsadviezen",
     "orefSirens": "Israel Sirens",
     "telegramIntel": "Telegram Inlichtingen",
@@ -72,7 +73,8 @@
     "gulfEconomies": "Golfeconomieën",
     "gulfIndices": "Golfindices",
     "gulfCurrencies": "Golfvaluta",
-    "gulfOil": "Golfolie"
+    "gulfOil": "Golfolie",
+    "bigmac": "Real Big Mac Index"
   },
   "commands": {
     "prefixes": {
@@ -570,6 +572,8 @@
         "stockExchanges": "Beurzen",
         "financialCenters": "Financiële centra",
         "centralBanks": "Centrale banken",
+      "laborMarket": "Labor Market",
+      "metroUnemployment": "Metro Unemployment",
         "commodityHubs": "Grondstoffenhubs",
         "gulfInvestments": "GCC-investeringen",
         "tradeRoutes": "Handelsroutes",
@@ -738,8 +742,8 @@
       "nuclear": "Nucleair"
     },
     "community": {
-      "joinDiscussion": "Doe mee aan de discussie",
-      "openDiscussion": "Open discussie",
+      "joinDiscussion": "Help Shape What's Next",
+      "openDiscussion": "Join Discord",
       "dontShowAgain": "Niet meer tonen",
       "sectionLabel": "Gemeenschap"
     },
@@ -780,7 +784,8 @@
       "token": "Token",
       "mcap": "Marktk.",
       "vol24h": "24u Vol",
-      "chg24h": "24u Wijz"
+      "chg24h": "24u Wijz",
+      "infoTooltip": "<strong>Stablecoins</strong> Peg health, market cap, and 24h volume for major USD-pegged tokens (USDT, USDC, DAI, BUSD). A broken peg signals systemic risk."
     },
     "status": {
       "dataFeeds": "Gegevensfeeds",
@@ -1046,7 +1051,7 @@
       "noSignals": "Geen instabiliteitssignalen gedetecteerd"
     },
     "gdeltIntel": {
-      "infoTooltip": "<strong>GDELT Intelligence</strong> Realtime monitoring van mondiaal nieuws:<ul><li>Samengestelde onderwerpcategorieën (conflicten, cyber, etc.)</li><li>Artikelen uit meer dan 100 talen vertaald</li><li>Updates elke 15 minuten</li></ul>Bron: GDELT Project (gdeltproject.org)"
+      "infoTooltip": "<strong>News Intelligence</strong> Realtime monitoring van mondiaal nieuws:<ul><li>Samengestelde onderwerpcategorieën (conflicten, cyber, etc.)</li><li>Artikelen uit meer dan 100 talen vertaald</li><li>Updates elke 15 minuten</li><li>14-day media tone &amp; volume trend per topic</li></ul>Bron: GDELT Project (gdeltproject.org)"
     },
     "telegramIntel": {
       "infoTooltip": "Realtime signalen van gemonitorde Telegram OSINT-kanalen",
@@ -1059,7 +1064,9 @@
       "filterAlerts": "Waarschuwingen",
       "filterOsint": "OSINT",
       "filterPolitics": "Politiek",
-      "filterMiddleeast": "Midden-Oosten"
+      "filterMiddleeast": "Midden-Oosten",
+      "live": "LIVE",
+      "viewSource": "Bron bekijken"
     },
     "investments": {
       "infoTooltip": "Database van directe buitenlandse investeringen van Saoedi-Arabië en de VAE in mondiale kritieke infrastructuur. Klik op een rij om naar de investering op de kaart te vliegen.",
@@ -1220,7 +1227,10 @@
       "yes": "Ja",
       "no": "Nee",
       "tooltip": "<strong>Voorspellingsmarkten</strong><br>Markten met echt geld:<br><ul><li>Prijzen weerspiegelen waarschijnlijkheidsschattingen</li><li>Hoger volume = betrouwbaarder signaal</li><li>Geopolitieke en actuele evenementen</li></ul>Bron: Polymarket (polymarket.com)",
-      "error": "Voorspellingen laden mislukt"
+      "error": "Voorspellingen laden mislukt",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "gdelt": {
       "empty": "Geen recente artikelen voor dit onderwerp"
@@ -1459,6 +1469,13 @@
     "supplyChain": {
       "chokepoints": "Knelpunten",
       "fredKeyMissing": "FRED API-sleutel vereist voor verzendtarieven — voeg deze toe in Instellingen. Knelpunten en mineralen beschikbaar zonder sleutel.",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "Mineraal",
       "minerals": "Mineralen",
       "noChokepoints": "Knelpuntgegevens worden geladen...",
@@ -1496,6 +1513,45 @@
     "map": {
       "showMap": "Kaart tonen",
       "hideMap": "Kaart verbergen"
+    },
+    "internetDisruptions": {
+      "infoTooltip": "<strong>Internet Disruptions</strong> Real-time internet outages, DDoS attacks, and traffic anomalies from global network monitoring:<ul><li><strong>Outages</strong>: BGP-detected connectivity failures by country</li><li><strong>DDoS</strong>: Volumetric attack reports by protocol and vector</li><li><strong>Anomalies</strong>: Unusual traffic patterns from Cloudflare Radar</li></ul>"
+    },
+    "commodities": {
+      "infoTooltip": "<strong>Commodities</strong> Tradeable non-energy commodity tape focused on metals and materials. Energy prices live in Energy Complex; macro stress indicators live in Macro Stress."
+    },
+    "crypto": {
+      "infoTooltip": "<strong>Crypto</strong> Live prices, 24h changes, and volume for major cryptocurrencies. Data sourced from CoinGecko."
+    },
+    "gulfEconomies": {
+      "infoTooltip": "<strong>Gulf Economies</strong> Real-time Gulf stock indices, currency rates, and oil prices for GCC economies (Saudi Arabia, UAE, Kuwait, Qatar, Bahrain, Oman)."
+    },
+    "groceryBasket": {
+      "infoTooltip": "<strong>Grocery Index</strong> Global grocery basket price comparison across 24 countries — tracks real-world consumer goods inflation beyond headline CPI."
+    },
+    "bigmac": {
+      "infoTooltip": "<strong>Real Big Mac Index</strong> The Economist's Big Mac Index measures purchasing power parity by comparing McDonald's burger prices across countries. Updated when new data is published (quarterly/annually)."
+    },
+    "defiTokens": {
+      "infoTooltip": "<strong>DeFi Tokens</strong> Prices and 24h/7d performance for major decentralized finance protocol tokens — DEXes, lending platforms, and yield protocols."
+    },
+    "aiTokens": {
+      "infoTooltip": "<strong>AI Tokens</strong> Prices and 24h/7d performance for AI and machine learning sector tokens — compute networks, decentralized AI infrastructure, and data protocols."
+    },
+    "altTokens": {
+      "infoTooltip": "<strong>Alt Tokens</strong> Prices and 24h/7d performance for alternative and emerging crypto tokens outside the major-cap tiers."
+    },
+    "stockAnalysis": {
+      "infoTooltip": "<strong>Premium Stock Analysis</strong> AI-powered analysis for stocks in your watchlist — buy/hold/sell signals, price targets, key risks, and catalysts updated daily."
+    },
+    "stockBacktest": {
+      "infoTooltip": "<strong>Premium Backtesting</strong> Historical performance backtests for stocks in your watchlist — past returns, max drawdown, and volatility metrics."
+    },
+    "dailyMarketBrief": {
+      "infoTooltip": "<strong>Daily Market Brief</strong> AI-generated daily summary of global market conditions, key macro trends, and sector-level signals — refreshes each trading day."
+    },
+    "centralBankWatch": {
+      "infoTooltip": "<strong>Central Bank Watch</strong> Latest statements, rate decisions, and communications from the Federal Reserve, ECB, Bank of England, and other major central banks worldwide."
     }
   },
   "popups": {
@@ -1862,7 +1918,12 @@
       "usniIntel": "USNI Intel",
       "usniSource": "Source: USNI News Fleet Tracker",
       "approximatePosition": "Position approximate — based on USNI weekly report, not real-time AIS.",
-      "darkDescription": "⚠ Het schip is donker geworden - AIS-signaal verloren. Kan duiden op gevoelige operaties."
+      "darkDescription": "⚠ Het schip is donker geworden - AIS-signaal verloren. Kan duiden op gevoelige operaties.",
+      "recentTracking": "Recent Tracking",
+      "lastReport": "LATEST",
+      "nearChokepoint": "NEAR CHOKEPOINT",
+      "nearBase": "NEAR BASE",
+      "lastSeen": "LAST SEEN"
     },
     "militaryCluster": {
       "flightActivity": {

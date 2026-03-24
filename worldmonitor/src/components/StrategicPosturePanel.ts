@@ -24,6 +24,7 @@ export class StrategicPosturePanel extends Panel {
       showCount: false,
       trackActivity: true,
       infoTooltip: t('components.strategicPosture.infoTooltip'),
+      defaultRowSpan: 2,
     });
     this.init();
   }
@@ -463,6 +464,28 @@ export class StrategicPosturePanel extends Panel {
     const html = `
       <div class="posture-panel">
         ${staleWarning}
+
+        <details class="posture-emoji-key">
+          <summary>💡 ${t('components.strategicPosture.emojiKeyLabel')}</summary>
+          <div class="posture-emoji-key-body">
+            <div class="posture-emoji-key-section">${t('components.strategicPosture.emojiKeyAir')}</div>
+            <div class="posture-emoji-key-item"><span>✈️</span><span>${t('components.strategicPosture.units.fighters')}</span></div>
+            <div class="posture-emoji-key-item"><span>⛽</span><span>${t('components.strategicPosture.units.tankers')}</span></div>
+            <div class="posture-emoji-key-item"><span>📡</span><span>${t('components.strategicPosture.units.awacs')}</span></div>
+            <div class="posture-emoji-key-item"><span>🔍</span><span>${t('components.strategicPosture.units.recon')}</span></div>
+            <div class="posture-emoji-key-item"><span>📦</span><span>${t('components.strategicPosture.units.transport')}</span></div>
+            <div class="posture-emoji-key-item"><span>💣</span><span>${t('components.strategicPosture.units.bombers')}</span></div>
+            <div class="posture-emoji-key-item"><span>🛸</span><span>${t('components.strategicPosture.units.drones')}</span></div>
+            <div class="posture-emoji-key-section">${t('components.strategicPosture.emojiKeyNaval')}</div>
+            <div class="posture-emoji-key-item"><span>🚢</span><span>${t('components.strategicPosture.units.carriers')}</span></div>
+            <div class="posture-emoji-key-item"><span>⚓</span><span>${t('components.strategicPosture.units.destroyers')}</span></div>
+            <div class="posture-emoji-key-item"><span>🛥️</span><span>${t('components.strategicPosture.units.frigates')}</span></div>
+            <div class="posture-emoji-key-item"><span>🦈</span><span>${t('components.strategicPosture.units.submarines')}</span></div>
+            <div class="posture-emoji-key-item"><span>🚤</span><span>${t('components.strategicPosture.units.patrol')}</span></div>
+            <div class="posture-emoji-key-item"><span>⚓</span><span>${t('components.strategicPosture.units.auxiliary')}</span></div>
+          </div>
+        </details>
+
         ${sorted.map((p) => this.renderTheater(p)).join('')}
 
         <div class="posture-footer">
@@ -499,7 +522,7 @@ export class StrategicPosturePanel extends Panel {
           element: (el as HTMLElement).textContent?.slice(0, 30),
           hasHandler: !!this.onLocationClick,
         });
-        if (this.onLocationClick && !isNaN(lat) && !isNaN(lon)) {
+        if (this.onLocationClick && !Number.isNaN(lat) && !Number.isNaN(lon)) {
           console.log('[StrategicPosturePanel] Calling onLocationClick with:', lat, lon);
           this.onLocationClick(lat, lon);
         } else {

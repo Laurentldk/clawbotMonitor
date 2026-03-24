@@ -1,13 +1,22 @@
 import type { AppContext, AppModule } from '@/app/app-context';
 import type { AirlineIntelPanel } from '@/components/AirlineIntelPanel';
-import type { PanelConfig, MapLayers } from '@/types';
+import type { CustomWidgetPanel } from '@/components/CustomWidgetPanel';
+import { openWidgetChatModal } from '@/components/WidgetChatModal';
+import { deleteWidget, getWidget, saveWidget, isProUser } from '@/services/widget-store';
+import { FREE_MAX_PANELS, FREE_MAX_SOURCES } from '@/config/panels';
+import type { McpDataPanel } from '@/components/McpDataPanel';
+import { openMcpConnectModal } from '@/components/McpConnectModal';
+import { deleteMcpPanel, getMcpPanel, saveMcpPanel } from '@/services/mcp-store';
+import type { PanelConfig, MapLayers, MilitaryFlight } from '@/types';
 import type { MapView } from '@/components';
+import type { PositionSample } from '@/services/aviation';
 import type { ClusteredEvent } from '@/types';
 import type { DashboardSnapshot } from '@/services/storage';
 import {
   PlaybackControl,
   StatusPanel,
   PizzIntIndicator,
+  LlmStatusIndicator,
   CIIPanel,
   PredictionPanel,
 } from '@/components';
@@ -26,15 +35,16 @@ import {
   LAYER_TO_SOURCE,
   FEEDS,
   INTEL_SOURCES,
-  DEFAULT_PANELS,
 } from '@/config';
 import { VARIANT_META } from '@/config/variant-meta';
+import { isDesktopRuntime } from '@/services/runtime';
 import {
   saveSnapshot,
   initAisStream,
   disconnectAisStream,
 } from '@/services';
 import {
+  track,
   trackPanelView,
   trackVariantSwitch,
   trackThemeChanged,
@@ -46,6 +56,7 @@ import {
 import { detectPlatform, allButtons, buttonsForPlatform } from '@/components/DownloadBanner';
 import type { Platform } from '@/components/DownloadBanner';
 import { invokeTauri } from '@/services/tauri-bridge';
+import { getCachedGpsInterference } from '@/services/gps-interference';
 import { dataFreshness } from '@/services/data-freshness';
 import { mlWorker } from '@/services/ml-worker';
 import { UnifiedSettings } from '@/components/UnifiedSettings';
@@ -54,6 +65,7 @@ import { TvModeController } from '@/services/tv-mode';
 
 export interface EventHandlerCallbacks {
   updateSearchIndex: () => void;
+  updateFlightSource?: (adsb: PositionSample[], military: MilitaryFlight[]) => void;
   loadAllData: () => Promise<void>;
   flushStaleRefreshes: () => void;
   setHiddenSince: (ts: number) => void;
@@ -63,6 +75,7 @@ export interface EventHandlerCallbacks {
   ensureCorrectZones: () => void;
   refreshOpenCountryBrief?: () => void;
   stopLayerActivity?: (layer: keyof MapLayers) => void;
+  mountLiveNewsIfReady?: () => void;
 }
 
 export class EventHandlerManager implements AppModule {
@@ -86,6 +99,9 @@ export class EventHandlerManager implements AppModule {
   private boundMapFullscreenEscHandler: ((e: KeyboardEvent) => void) | null = null;
   private boundMobileMenuKeyHandler: ((e: KeyboardEvent) => void) | null = null;
   private boundPanelCloseHandler: ((e: Event) => void) | null = null;
+  private boundWidgetModifyHandler: ((e: Event) => void) | null = null;
+  private boundUndoHandler: ((e: KeyboardEvent) => void) | null = null;
+  private closedPanelStack: string[] = []; // max-items: 20
   private idleTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private snapshotIntervalId: ReturnType<typeof setInterval> | null = null;
   private clockIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -97,6 +113,12 @@ export class EventHandlerManager implements AppModule {
     try { history.replaceState(null, '', shareUrl); } catch { }
   }, 250);
 
+  private readonly debouncedWebcamReload = debounce(() => {
+    if (this.ctx.mapLayers?.webcams) {
+      this.callbacks.loadDataForLayer('webcams');
+    }
+  }, 350);
+
   constructor(ctx: AppContext, callbacks: EventHandlerCallbacks) {
     this.ctx = ctx;
     this.callbacks = callbacks;
@@ -106,6 +128,28 @@ export class EventHandlerManager implements AppModule {
     this.setupEventListeners();
     this.setupIdleDetection();
     this.setupTvMode();
+  }
+
+  private performUndo(): void {
+    const panelId = this.closedPanelStack.pop();
+    if (!panelId) return;
+    const config = this.ctx.panelSettings[panelId];
+    if (!config) return;
+    if (!isProUser()) {
+      const enabledCount = Object.entries(this.ctx.panelSettings).filter(([k, p]) => p.enabled && !k.startsWith('cw-')).length;
+      if (enabledCount >= FREE_MAX_PANELS) return;
+    }
+    config.enabled = true;
+    trackPanelToggled(panelId, true);
+    saveToStorage(STORAGE_KEYS.panels, this.ctx.panelSettings);
+    this.applyPanelSettings();
+    this.ctx.unifiedSettings?.refreshPanelToggles();
+
+    // Ensure restored panel fetches fresh data (otherwise it may show no content)
+    const panel = this.ctx.panels[panelId];
+    if (panel && 'fetchData' in panel) {
+      (panel as any).fetchData();
+    }
   }
 
   private setupTvMode(): void {
@@ -133,7 +177,7 @@ export class EventHandlerManager implements AppModule {
   }
 
   private toggleTvMode(): void {
-    const panelKeys = Object.keys(DEFAULT_PANELS).filter(
+    const panelKeys = Object.keys(this.ctx.panelSettings).filter(
       key => this.ctx.panelSettings[key]?.enabled !== false
     );
     if (!this.ctx.tvMode) {
@@ -152,6 +196,7 @@ export class EventHandlerManager implements AppModule {
 
   destroy(): void {
     this.debouncedUrlSync.cancel();
+    this.debouncedWebcamReload.cancel();
     if (this.boundFullscreenHandler) {
       document.removeEventListener('fullscreenchange', this.boundFullscreenHandler);
       this.boundFullscreenHandler = null;
@@ -235,6 +280,14 @@ export class EventHandlerManager implements AppModule {
       this.ctx.container.removeEventListener('wm:panel-close', this.boundPanelCloseHandler);
       this.boundPanelCloseHandler = null;
     }
+    if (this.boundWidgetModifyHandler) {
+      this.ctx.container.removeEventListener('wm:widget-modify', this.boundWidgetModifyHandler);
+      this.boundWidgetModifyHandler = null;
+    }
+    if (this.boundUndoHandler) {
+      document.removeEventListener('keydown', this.boundUndoHandler);
+      this.boundUndoHandler = null;
+    }
     this.ctx.tvMode?.destroy();
     this.ctx.tvMode = null;
     this.ctx.unifiedSettings?.destroy();
@@ -246,9 +299,18 @@ export class EventHandlerManager implements AppModule {
       this.callbacks.updateSearchIndex();
       this.ctx.searchModal?.open();
     };
-    document.getElementById('searchBtn')?.addEventListener('click', openSearch);
-    document.getElementById('mobileSearchBtn')?.addEventListener('click', openSearch);
-    document.getElementById('searchMobileFab')?.addEventListener('click', openSearch);
+    document.getElementById('searchBtn')?.addEventListener('click', () => {
+      track('search-open', { source: 'desktop' });
+      openSearch();
+    });
+    document.getElementById('mobileSearchBtn')?.addEventListener('click', () => {
+      track('search-open', { source: 'mobile' });
+      openSearch();
+    });
+    document.getElementById('searchMobileFab')?.addEventListener('click', () => {
+      track('search-open', { source: 'fab' });
+      openSearch();
+    });
 
     document.getElementById('copyLinkBtn')?.addEventListener('click', async () => {
       const shareUrl = this.getShareUrl();
@@ -275,8 +337,12 @@ export class EventHandlerManager implements AppModule {
       }
       if (e.key === STORAGE_KEYS.liveChannels && e.newValue) {
         const panel = this.ctx.panels['live-news'];
-        if (panel && typeof (panel as unknown as { refreshChannelsFromStorage?: () => void }).refreshChannelsFromStorage === 'function') {
-          (panel as unknown as { refreshChannelsFromStorage: () => void }).refreshChannelsFromStorage();
+        if (panel) {
+          if (typeof (panel as unknown as { refreshChannelsFromStorage?: () => void }).refreshChannelsFromStorage === 'function') {
+            (panel as unknown as { refreshChannelsFromStorage: () => void }).refreshChannelsFromStorage();
+          }
+        } else {
+          this.callbacks.mountLiveNewsIfReady?.();
         }
       }
     };
@@ -285,6 +351,31 @@ export class EventHandlerManager implements AppModule {
     // Handle panel close (X) button clicks
     this.boundPanelCloseHandler = ((e: CustomEvent<{ panelId: string }>) => {
       const { panelId } = e.detail;
+
+      if (panelId.startsWith('cw-')) {
+        if (!window.confirm(t('widgets.confirmDelete'))) return;
+        deleteWidget(panelId);
+        const panel = this.ctx.panels[panelId];
+        panel?.destroy();
+        delete this.ctx.panels[panelId];
+        delete this.ctx.panelSettings[panelId];
+        saveToStorage(STORAGE_KEYS.panels, this.ctx.panelSettings);
+        panel?.getElement()?.remove();
+        return;
+      }
+
+      if (panelId.startsWith('mcp-')) {
+        if (!window.confirm(t('mcp.confirmDelete'))) return;
+        deleteMcpPanel(panelId);
+        const panel = this.ctx.panels[panelId];
+        panel?.destroy();
+        delete this.ctx.panels[panelId];
+        delete this.ctx.panelSettings[panelId];
+        saveToStorage(STORAGE_KEYS.panels, this.ctx.panelSettings);
+        panel?.getElement()?.remove();
+        return;
+      }
+
       const config = this.ctx.panelSettings[panelId];
       if (!config) return;
       config.enabled = false;
@@ -292,8 +383,48 @@ export class EventHandlerManager implements AppModule {
       saveToStorage(STORAGE_KEYS.panels, this.ctx.panelSettings);
       this.applyPanelSettings();
       this.ctx.unifiedSettings?.refreshPanelToggles();
+      // push to undo stack (cap size for memory safety)
+      this.closedPanelStack.push(panelId);
+      if (this.closedPanelStack.length > 20) this.closedPanelStack.shift();
     }) as EventListener;
     this.ctx.container.addEventListener('wm:panel-close', this.boundPanelCloseHandler);
+
+    this.boundWidgetModifyHandler = ((e: CustomEvent<{ widgetId: string }>) => {
+      const spec = getWidget(e.detail.widgetId);
+      if (!spec) return;
+      openWidgetChatModal({
+        mode: 'modify',
+        existingSpec: spec,
+        onComplete: (updated) => {
+          saveWidget(updated);
+          (this.ctx.panels[updated.id] as CustomWidgetPanel | undefined)?.updateSpec(updated);
+        },
+      });
+    }) as EventListener;
+    this.ctx.container.addEventListener('wm:widget-modify', this.boundWidgetModifyHandler);
+
+    this.ctx.container.addEventListener('wm:mcp-configure', ((e: CustomEvent<{ panelId: string }>) => {
+      const spec = getMcpPanel(e.detail.panelId);
+      if (!spec) return;
+      openMcpConnectModal({
+        existingSpec: spec,
+        onComplete: (updated) => {
+          saveMcpPanel(updated);
+          (this.ctx.panels[updated.id] as McpDataPanel | undefined)?.updateSpec(updated);
+        },
+      });
+    }) as EventListener);
+
+    // undo via Ctrl/Cmd+Z
+    this.boundUndoHandler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement).isContentEditable) return;
+        e.preventDefault();
+        this.performUndo();
+      }
+    };
+    document.addEventListener('keydown', this.boundUndoHandler);
 
     const isLocalDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     this.ctx.container.querySelectorAll<HTMLAnchorElement>('.variant-option').forEach(link => {
@@ -314,6 +445,7 @@ export class EventHandlerManager implements AppModule {
       this.boundFullscreenHandler = () => {
         fullscreenBtn.textContent = document.fullscreenElement ? '\u26F6' : '\u26F6';
         fullscreenBtn.classList.toggle('active', !!document.fullscreenElement);
+        this.syncMapAfterLayoutChange();
       };
       document.addEventListener('fullscreenchange', this.boundFullscreenHandler);
     }
@@ -349,7 +481,7 @@ export class EventHandlerManager implements AppModule {
     document.addEventListener('visibilitychange', this.boundVisibilityHandler);
 
     this.boundFocalPointsReadyHandler = () => {
-      (this.ctx.panels['cii'] as CIIPanel)?.refresh(true);
+      (this.ctx.panels.cii as CIIPanel)?.refresh(true);
       this.callbacks.refreshOpenCountryBrief?.();
     };
     window.addEventListener('focal-points-ready', this.boundFocalPointsReadyHandler);
@@ -542,6 +674,7 @@ export class EventHandlerManager implements AppModule {
           regionSelect.value = state.view;
         }
       }
+      this.debouncedWebcamReload();
     });
     this.debouncedUrlSync();
   }
@@ -685,6 +818,16 @@ export class EventHandlerManager implements AppModule {
     };
   }
 
+  private syncMapAfterLayoutChange(delayMs = 320): void {
+    const sync = () => {
+      this.ctx.map?.setIsResizing(false);
+      this.ctx.map?.resize();
+    };
+
+    requestAnimationFrame(sync);
+    window.setTimeout(sync, delayMs);
+  }
+
   private async exitFullscreenForNavigation(): Promise<void> {
     const fullscreenDocument = this.getFullscreenDocument();
     if (!fullscreenDocument.fullscreenElement && !fullscreenDocument.webkitFullscreenElement) return;
@@ -711,7 +854,14 @@ export class EventHandlerManager implements AppModule {
     }
 
     const target = options.href || VARIANT_META[variant]?.url;
-    if (target) window.location.href = target;
+    if (!target) return;
+    try {
+      const parsed = new URL(target, window.location.href);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+      window.location.href = parsed.toString();
+    } catch {
+      return;
+    }
   }
 
   toggleFullscreen(): void {
@@ -758,7 +908,7 @@ export class EventHandlerManager implements AppModule {
   }
 
   setupPizzIntIndicator(): void {
-    if (SITE_VARIANT === 'tech' || SITE_VARIANT === 'finance' || SITE_VARIANT === 'happy') return;
+    if (SITE_VARIANT !== 'full') return;
 
     this.ctx.pizzintIndicator = new PizzIntIndicator();
     const headerLeft = this.ctx.container.querySelector('.header-left');
@@ -767,13 +917,40 @@ export class EventHandlerManager implements AppModule {
     }
   }
 
+  setupLlmStatusIndicator(): void {
+    if (!isDesktopRuntime()) return;
+    this.ctx.llmStatusIndicator = new LlmStatusIndicator();
+    const headerRight = this.ctx.container.querySelector('.header-right');
+    if (headerRight) {
+      headerRight.appendChild(this.ctx.llmStatusIndicator.getElement());
+    }
+  }
+
   setupExportPanel(): void {
-    this.ctx.exportPanel = new ExportPanel(() => ({
-      news: this.ctx.latestClusters.length > 0 ? this.ctx.latestClusters : this.ctx.allNews,
-      markets: this.ctx.latestMarkets,
-      predictions: this.ctx.latestPredictions,
-      timestamp: Date.now(),
-    }));
+    if (!isProUser()) return;
+    this.ctx.exportPanel = new ExportPanel(() => {
+      const allCards = this.ctx.correlationEngine?.getAllCards() ?? [];
+      const disabledCount = this.ctx.disabledSources.size;
+      return {
+        meta: {
+          exportedAt: new Date().toISOString(),
+          note: disabledCount > 0
+            ? `Export reflects currently enabled sources only. ${disabledCount} source(s) are disabled and not included.`
+            : 'Export reflects all active sources.',
+        },
+        timestamp: Date.now(),
+        news: this.ctx.allNews,
+        newsClusters: this.ctx.latestClusters.length > 0 ? this.ctx.latestClusters : undefined,
+        newsByCategory: this.ctx.newsByCategory,
+        markets: this.ctx.latestMarkets,
+        predictions: this.ctx.latestPredictions,
+        intelligence: this.ctx.intelligenceCache,
+        cyberThreats: this.ctx.cyberThreatsCache ?? undefined,
+        gpsJamming: getCachedGpsInterference() ?? undefined,
+        convergenceCards: allCards.map(({ assessment: _a, ...card }) => card),
+        monitors: this.ctx.monitors.length > 0 ? this.ctx.monitors : undefined,
+      };
+    });
 
     const headerRight = this.ctx.container.querySelector('.header-right');
     if (headerRight) {
@@ -799,10 +976,20 @@ export class EventHandlerManager implements AppModule {
         });
         saveToStorage(STORAGE_KEYS.panels, this.ctx.panelSettings);
         this.applyPanelSettings();
+        this.callbacks.updateSearchIndex();
       },
       getDisabledSources: () => this.ctx.disabledSources,
       toggleSource: (name: string) => {
-        if (this.ctx.disabledSources.has(name)) {
+        const reenabling = this.ctx.disabledSources.has(name);
+        if (reenabling && !isProUser()) {
+          const allSources = this.getAllSourceNames();
+          const currentlyEnabled = allSources.filter(n => !this.ctx.disabledSources.has(n)).length;
+          if (currentlyEnabled + 1 > FREE_MAX_SOURCES) {
+            this.showToast(t('modals.settingsWindow.freeSourceLimit', { max: String(FREE_MAX_SOURCES) }));
+            return;
+          }
+        }
+        if (reenabling) {
           this.ctx.disabledSources.delete(name);
         } else {
           this.ctx.disabledSources.add(name);
@@ -810,6 +997,15 @@ export class EventHandlerManager implements AppModule {
         saveToStorage(STORAGE_KEYS.disabledFeeds, Array.from(this.ctx.disabledSources));
       },
       setSourcesEnabled: (names: string[], enabled: boolean) => {
+        if (enabled && !isProUser()) {
+          const allSources = this.getAllSourceNames();
+          const currentlyEnabled = allSources.filter(n => !this.ctx.disabledSources.has(n)).length;
+          const wouldEnable = names.filter(n => this.ctx.disabledSources.has(n) && allSources.includes(n)).length;
+          if (currentlyEnabled + wouldEnable > FREE_MAX_SOURCES) {
+            this.showToast(t('modals.settingsWindow.freeSourceLimit', { max: String(FREE_MAX_SOURCES) }));
+            return;
+          }
+        }
         for (const name of names) {
           if (enabled) this.ctx.disabledSources.delete(name);
           else this.ctx.disabledSources.add(name);
@@ -845,6 +1041,7 @@ export class EventHandlerManager implements AppModule {
   }
 
   setupPlaybackControl(): void {
+    if (!isProUser()) return;
     this.ctx.playbackControl = new PlaybackControl();
     this.ctx.playbackControl.onSnapshot((snapshot) => {
       if (snapshot) {
@@ -904,7 +1101,7 @@ export class EventHandlerManager implements AppModule {
       liquidity: 0,
     }));
     this.ctx.latestPredictions = predictions;
-    (this.ctx.panels['polymarket'] as PredictionPanel | undefined)?.renderPredictions(predictions);
+    (this.ctx.panels.polymarket as PredictionPanel | undefined)?.renderPredictions(predictions);
 
     this.ctx.map?.setHotspotLevels(snapshot.hotspotLevels);
   }
@@ -947,11 +1144,13 @@ export class EventHandlerManager implements AppModule {
       }
     });
 
-    // Forward live aircraft positions from map to AirlineIntelPanel + cache
+    // Forward live aircraft positions from map to AirlineIntelPanel + cache + search index
     this.ctx.map?.setOnAircraftPositionsUpdate((positions) => {
       this.ctx.intelligenceCache.aircraftPositions = positions;
       const airlineIntel = this.ctx.panels['airline-intel'] as AirlineIntelPanel | undefined;
       airlineIntel?.updateLivePositions(positions);
+      const military = this.ctx.intelligenceCache.military?.flights ?? [];
+      this.callbacks.updateFlightSource?.(positions, military);
     });
   }
 
@@ -1171,8 +1370,7 @@ export class EventHandlerManager implements AppModule {
       document.body.classList.toggle('live-news-fullscreen-active', isFullscreen);
       btn.innerHTML = isFullscreen ? shrinkSvg : expandSvg;
       btn.title = isFullscreen ? 'Exit fullscreen' : 'Fullscreen';
-      // Notify map so globe (and deck.gl) can resize after CSS transition completes
-      setTimeout(() => this.ctx.map?.setIsResizing(false), 320);
+      this.syncMapAfterLayoutChange();
     };
 
     btn.addEventListener('click', toggle);

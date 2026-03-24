@@ -1,4 +1,4 @@
-import type { Hotspot, ConflictZone, MilitaryBase, UnderseaCable, NuclearFacility, StrategicWaterway, APTGroup, EconomicCenter, Spaceport, CriticalMineralProject } from '@/types';
+import type { Hotspot, ConflictZone, MilitaryBase, UnderseaCable, NuclearFacility, StrategicWaterway, EconomicCenter, Spaceport, CriticalMineralProject } from '@/types';
 import { MILITARY_BASES_EXPANDED } from './bases-expanded';
 
 // Hotspot levels are NOT hardcoded - they are dynamically calculated based on news activity
@@ -506,15 +506,13 @@ export const STRATEGIC_WATERWAYS: StrategicWaterway[] = [
   { id: 'panama', name: 'PANAMA CANAL', lat: 9.1, lon: -79.7, description: 'Americas shipping route' },
   { id: 'gibraltar', name: 'STRAIT OF GIBRALTAR', lat: 35.9, lon: -5.6, description: 'Mediterranean access, NATO control' },
   { id: 'bab_el_mandeb', name: 'BAB EL-MANDEB', lat: 12.5, lon: 43.3, description: 'Red Sea chokepoint, Houthi attacks' },
-  { id: 'dardanelles', name: 'DARDANELLES', lat: 40.2, lon: 26.4, description: 'Aegean-Marmara link, Turkey control' },
+  { id: 'cape_of_good_hope', name: 'CAPE OF GOOD HOPE', lat: -34.36, lon: 18.49, description: 'Suez bypass route, tanker traffic' },
+  { id: 'dover_strait', name: 'DOVER STRAIT', lat: 51.0, lon: 1.5, description: 'English Channel narrows, busiest shipping lane' },
+  { id: 'korea_strait', name: 'KOREA STRAIT', lat: 34.0, lon: 129.0, description: 'Japan-Korea shipping lane' },
+  { id: 'kerch_strait', name: 'KERCH STRAIT', lat: 45.3, lon: 36.6, description: 'Black Sea-Azov access, Russia-Ukraine flashpoint' },
+  { id: 'lombok_strait', name: 'LOMBOK STRAIT', lat: -8.5, lon: 115.7, description: 'Malacca bypass for deep-draft vessels' },
 ];
 
-export const APT_GROUPS: APTGroup[] = [
-  { id: 'apt28', name: 'APT28/29', aka: 'Fancy Bear/Cozy Bear', sponsor: 'Russia (GRU/FSB)', lat: 55.0, lon: 40.0 },
-  { id: 'apt41', name: 'APT41', aka: 'Double Dragon', sponsor: 'China (MSS)', lat: 38.0, lon: 118.0 },
-  { id: 'lazarus', name: 'Lazarus', aka: 'Hidden Cobra', sponsor: 'North Korea (RGB)', lat: 38.5, lon: 127.0 },
-  { id: 'apt33', name: 'APT33/35', aka: 'Elfin/Charming Kitten', sponsor: 'Iran (IRGC)', lat: 34.0, lon: 53.0 },
-];
 
 export const CONFLICT_ZONES: ConflictZone[] = [
   {

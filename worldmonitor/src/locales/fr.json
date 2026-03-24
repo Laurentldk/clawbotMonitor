@@ -270,7 +270,8 @@
     "techHubs": "Pôles Technologiques",
     "gccInvestments": "Investissements du CCG",
     "geoHubs": "Centres géopolitiques",
-    "liveWebcams": "Webcams en Direct",
+    "liveYouTube": "Webcams en Direct",
+    "pinnedWebcams": "Pinned Webcams",
     "securityAdvisories": "Avis de Sécurité",
     "orefSirens": "Israel Sirens",
     "telegramIntel": "Renseignement Telegram",
@@ -279,7 +280,8 @@
     "gulfEconomies": "Économies du Golfe",
     "gulfIndices": "Indices du Golfe",
     "gulfCurrencies": "Devises du Golfe",
-    "gulfOil": "Pétrole du Golfe"
+    "gulfOil": "Pétrole du Golfe",
+    "bigmac": "Real Big Mac Index"
   },
   "commands": {
     "prefixes": {
@@ -737,6 +739,8 @@
       "vsPreviousWeek": "par rapport à la semaine précédente",
       "in": "dans",
       "centralBanks": "Banques centrales",
+      "laborMarket": "Labor Market",
+      "metroUnemployment": "Metro Unemployment",
       "noBisData": "Données BRI temporairement indisponibles - je vais réessayer",
       "policyRate": "Taux directeur",
       "exchangeRate": "Taux de change",
@@ -789,7 +793,10 @@
       "yes": "Oui",
       "no": "Non",
       "vol": "Vol",
-      "closes": "Ferme"
+      "closes": "Ferme",
+      "leanYes": "Lean Yes",
+      "leanNo": "Lean No",
+      "tossUp": "Toss-up"
     },
     "stablecoins": {
       "pegHealth": "Santé de l'ancrage",
@@ -798,7 +805,8 @@
       "token": "Jeton",
       "mcap": "Cap. march.",
       "vol24h": "Vol 24h",
-      "chg24h": "Var 24h"
+      "chg24h": "Var 24h",
+      "infoTooltip": "<strong>Stablecoins</strong> Peg health, market cap, and 24h volume for major USD-pegged tokens (USDT, USDC, DAI, BUSD). A broken peg signals systemic risk."
     },
     "status": {
       "dataFeeds": "Flux de données",
@@ -920,8 +928,8 @@
       "nuclear": "Nucléaire"
     },
     "community": {
-      "joinDiscussion": "Rejoindre la discussion",
-      "openDiscussion": "Ouvrir la discussion",
+      "joinDiscussion": "Help Shape What's Next",
+      "openDiscussion": "Join Discord",
       "dontShowAgain": "Ne plus afficher",
       "sectionLabel": "Communauté"
     },
@@ -1456,7 +1464,7 @@
       "noEventsIn7Days": "Aucun événement en 7 jours"
     },
     "gdeltIntel": {
-      "infoTooltip": "<strong>GDELT Intelligence</strong> Surveillance de l'actualité mondiale en temps réel :<ul><li>Catégories de sujets sélectionnés (conflits, cyber, etc.)</li><li>Articles traduits dans plus de 100 langues</li><li>Mises à jour toutes les 15 minutes</li></ul>Source : Projet GDELT (gdeltproject.org)"
+      "infoTooltip": "<strong>News Intelligence</strong> Surveillance de l'actualité mondiale en temps réel :<ul><li>Catégories de sujets sélectionnés (conflits, cyber, etc.)</li><li>Articles traduits dans plus de 100 langues</li><li>Mises à jour toutes les 15 minutes</li><li>14-day media tone &amp; volume trend per topic</li></ul>Source : Projet GDELT (gdeltproject.org)"
     },
     "telegramIntel": {
       "infoTooltip": "Signaux en temps réel provenant des canaux OSINT Telegram surveillés",
@@ -1469,7 +1477,9 @@
       "filterAlerts": "Alertes",
       "filterOsint": "OSINT",
       "filterPolitics": "Politique",
-      "filterMiddleeast": "Moyen-Orient"
+      "filterMiddleeast": "Moyen-Orient",
+      "live": "EN DIRECT",
+      "viewSource": "Voir la source"
     },
     "investments": {
       "infoTooltip": "Base de données des investissements directs étrangers de l'Arabie saoudite et des Émirats arabes unis dans les infrastructures critiques mondiales. Cliquez sur une ligne pour accéder à l'investissement sur la carte.",
@@ -1673,6 +1683,13 @@
     "supplyChain": {
       "chokepoints": "Points d'étranglement",
       "fredKeyMissing": "Clé API FRED requise pour les tarifs d'expédition — ajoutez-la dans les Paramètres. Points d'étranglement et minéraux disponibles sans clé.",
+      "routingAction": "Routing",
+      "disruption": "Disruption",
+      "vessels": "vessels",
+      "incidents7d": "incidents (7d)",
+      "corridorDisruption": "Corridor Disruption",
+      "corridor": "Corridor",
+      "loadingCorridors": "Loading corridor data...",
       "mineral": "Minéral",
       "minerals": "Minéraux",
       "noChokepoints": "Données des points d'étranglement en cours de chargement...",
@@ -1700,6 +1717,45 @@
     "map": {
       "showMap": "Afficher la carte",
       "hideMap": "Masquer la carte"
+    },
+    "internetDisruptions": {
+      "infoTooltip": "<strong>Internet Disruptions</strong> Real-time internet outages, DDoS attacks, and traffic anomalies from global network monitoring:<ul><li><strong>Outages</strong>: BGP-detected connectivity failures by country</li><li><strong>DDoS</strong>: Volumetric attack reports by protocol and vector</li><li><strong>Anomalies</strong>: Unusual traffic patterns from Cloudflare Radar</li></ul>"
+    },
+    "commodities": {
+      "infoTooltip": "<strong>Commodities</strong> Tradeable non-energy commodity tape focused on metals and materials. Energy prices live in Energy Complex; macro stress indicators live in Macro Stress."
+    },
+    "crypto": {
+      "infoTooltip": "<strong>Crypto</strong> Live prices, 24h changes, and volume for major cryptocurrencies. Data sourced from CoinGecko."
+    },
+    "gulfEconomies": {
+      "infoTooltip": "<strong>Gulf Economies</strong> Real-time Gulf stock indices, currency rates, and oil prices for GCC economies (Saudi Arabia, UAE, Kuwait, Qatar, Bahrain, Oman)."
+    },
+    "groceryBasket": {
+      "infoTooltip": "<strong>Grocery Index</strong> Global grocery basket price comparison across 24 countries — tracks real-world consumer goods inflation beyond headline CPI."
+    },
+    "bigmac": {
+      "infoTooltip": "<strong>Real Big Mac Index</strong> The Economist's Big Mac Index measures purchasing power parity by comparing McDonald's burger prices across countries. Updated when new data is published (quarterly/annually)."
+    },
+    "defiTokens": {
+      "infoTooltip": "<strong>DeFi Tokens</strong> Prices and 24h/7d performance for major decentralized finance protocol tokens — DEXes, lending platforms, and yield protocols."
+    },
+    "aiTokens": {
+      "infoTooltip": "<strong>AI Tokens</strong> Prices and 24h/7d performance for AI and machine learning sector tokens — compute networks, decentralized AI infrastructure, and data protocols."
+    },
+    "altTokens": {
+      "infoTooltip": "<strong>Alt Tokens</strong> Prices and 24h/7d performance for alternative and emerging crypto tokens outside the major-cap tiers."
+    },
+    "stockAnalysis": {
+      "infoTooltip": "<strong>Premium Stock Analysis</strong> AI-powered analysis for stocks in your watchlist — buy/hold/sell signals, price targets, key risks, and catalysts updated daily."
+    },
+    "stockBacktest": {
+      "infoTooltip": "<strong>Premium Backtesting</strong> Historical performance backtests for stocks in your watchlist — past returns, max drawdown, and volatility metrics."
+    },
+    "dailyMarketBrief": {
+      "infoTooltip": "<strong>Daily Market Brief</strong> AI-generated daily summary of global market conditions, key macro trends, and sector-level signals — refreshes each trading day."
+    },
+    "centralBankWatch": {
+      "infoTooltip": "<strong>Central Bank Watch</strong> Latest statements, rate decisions, and communications from the Federal Reserve, ECB, Bank of England, and other major central banks worldwide."
     }
   },
   "popups": {
@@ -2066,7 +2122,12 @@
       "usniIntel": "USNI Intel",
       "usniSource": "Source: USNI News Fleet Tracker",
       "approximatePosition": "Position approximate — based on USNI weekly report, not real-time AIS.",
-      "darkDescription": "⚠ Le navire est devenu sombre - signal AIS perdu. Peut indiquer des opérations sensibles."
+      "darkDescription": "⚠ Le navire est devenu sombre - signal AIS perdu. Peut indiquer des opérations sensibles.",
+      "recentTracking": "Recent Tracking",
+      "lastReport": "LATEST",
+      "nearChokepoint": "NEAR CHOKEPOINT",
+      "nearBase": "NEAR BASE",
+      "lastSeen": "LAST SEEN"
     },
     "militaryCluster": {
       "flightActivity": {

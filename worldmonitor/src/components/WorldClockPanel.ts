@@ -94,21 +94,25 @@ function saveSelectedCities(ids: string[]): void {
 }
 
 function getTimeInZone(tz: string): { h: number; m: number; s: number; dayOfWeek: string } {
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat(getLocale(), {
-    timeZone: tz, hour: 'numeric', minute: 'numeric', second: 'numeric',
-    hour12: false, weekday: 'short',
-    numberingSystem: 'latn',
-  }).formatToParts(now);
-  let h = 0, m = 0, s = 0, dayOfWeek = '';
-  for (const p of parts) {
-    if (p.type === 'hour') h = parseInt(p.value, 10);
-    if (p.type === 'minute') m = parseInt(p.value, 10);
-    if (p.type === 'second') s = parseInt(p.value, 10);
-    if (p.type === 'weekday') dayOfWeek = p.value;
+  try {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat(getLocale(), {
+      timeZone: tz, hour: 'numeric', minute: 'numeric', second: 'numeric',
+      hour12: false, weekday: 'short',
+      numberingSystem: 'latn',
+    }).formatToParts(now);
+    let h = 0, m = 0, s = 0, dayOfWeek = '';
+    for (const p of parts) {
+      if (p.type === 'hour') h = parseInt(p.value, 10);
+      if (p.type === 'minute') m = parseInt(p.value, 10);
+      if (p.type === 'second') s = parseInt(p.value, 10);
+      if (p.type === 'weekday') dayOfWeek = p.value;
+    }
+    if (h === 24) h = 0;
+    return { h, m, s, dayOfWeek };
+  } catch {
+    return { h: 0, m: 0, s: 0, dayOfWeek: '' };
   }
-  if (h === 24) h = 0;
-  return { h, m, s, dayOfWeek };
 }
 
 function getTzAbbr(tz: string): string {
@@ -217,6 +221,7 @@ export class WorldClockPanel extends Panel {
       this.dragStartY = e.clientY;
       this.dragging = false;
       row.classList.add('wc-dragging');
+      content.classList.add('wc-content-dragging');
     });
 
     document.addEventListener('mousemove', (e: MouseEvent) => {
@@ -241,6 +246,7 @@ export class WorldClockPanel extends Panel {
       this.dragCityId = null;
       const rows = content.querySelectorAll('.wc-row[data-city-id]');
       rows.forEach(r => r.classList.remove('wc-dragging', 'wc-drag-over-above', 'wc-drag-over-below'));
+      content.classList.remove('wc-content-dragging');
 
       if (this.dragging) {
         let targetId: string | null = null;

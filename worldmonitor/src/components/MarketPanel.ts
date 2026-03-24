@@ -1,6 +1,6 @@
 import { Panel } from './Panel';
 import { t } from '@/services/i18n';
-import type { MarketData, CryptoData } from '@/types';
+import type { MarketData, CryptoData, TokenData } from '@/types';
 import { formatPrice, formatChange, getChangeClass, getHeatmapClass } from '@/utils';
 import { escapeHtml } from '@/utils/sanitize';
 import { miniSparkline } from '@/utils/sparkline';
@@ -16,7 +16,7 @@ export class MarketPanel extends Panel {
   private overlay: HTMLElement | null = null;
 
   constructor() {
-    super({ id: 'markets', title: t('panels.markets') });
+    super({ id: 'markets', title: t('panels.markets'), infoTooltip: t('components.markets.infoTooltip') });
     this.createSettingsButton();
   }
 
@@ -135,28 +135,31 @@ export class MarketPanel extends Panel {
 
 export class HeatmapPanel extends Panel {
   constructor() {
-    super({ id: 'heatmap', title: t('panels.heatmap') });
+    super({ id: 'heatmap', title: t('panels.heatmap'), infoTooltip: t('components.heatmap.infoTooltip') });
   }
 
-  public renderHeatmap(data: Array<{ name: string; change: number | null }>): void {
-    const validData = data.filter((d) => d.change !== null);
-
-    if (validData.length === 0) {
+  public renderHeatmap(data: Array<{ symbol?: string; name: string; change: number | null }>): void {
+    if (data.length === 0) {
       this.showRetrying(t('common.failedSectorData'));
       return;
     }
 
     const html =
       '<div class="heatmap">' +
-      validData
-        .map(
-          (sector) => `
-        <div class="heatmap-cell ${getHeatmapClass(sector.change!)}">
+      data
+        .map((sector) => {
+          const change = sector.change ?? 0;
+          const tickerHtml = sector.symbol
+            ? `<div class="sector-ticker">${escapeHtml(sector.symbol)}</div>`
+            : '';
+          return `
+        <div class="heatmap-cell ${getHeatmapClass(change)}">
+          ${tickerHtml}
+          <div class="sector-change ${getChangeClass(change)}">${formatChange(change)}</div>
           <div class="sector-name">${escapeHtml(sector.name)}</div>
-          <div class="sector-change ${getChangeClass(sector.change!)}">${formatChange(sector.change!)}</div>
         </div>
-      `
-        )
+      `;
+        })
         .join('') +
       '</div>';
 
@@ -166,7 +169,7 @@ export class HeatmapPanel extends Panel {
 
 export class CommoditiesPanel extends Panel {
   constructor() {
-    super({ id: 'commodities', title: t('panels.commodities') });
+    super({ id: 'commodities', title: t('panels.commodities'), infoTooltip: t('components.commodities.infoTooltip') });
   }
 
   public renderCommodities(data: Array<{ display: string; price: number | null; change: number | null; sparkline?: number[] }>): void {
@@ -199,7 +202,7 @@ export class CommoditiesPanel extends Panel {
 
 export class CryptoPanel extends Panel {
   constructor() {
-    super({ id: 'crypto', title: t('panels.crypto') });
+    super({ id: 'crypto', title: t('panels.crypto'), infoTooltip: t('components.crypto.infoTooltip') });
   }
 
   public renderCrypto(data: CryptoData[]): void {
@@ -227,5 +230,82 @@ export class CryptoPanel extends Panel {
       .join('');
 
     this.setContent(html);
+  }
+}
+
+export class CryptoHeatmapPanel extends Panel {
+  constructor() {
+    super({ id: 'crypto-heatmap', title: 'Crypto Sectors' });
+  }
+
+  public renderSectors(data: Array<{ id: string; name: string; change: number }>): void {
+    if (data.length === 0) {
+      this.showRetrying(t('common.failedSectorData'));
+      return;
+    }
+
+    const html =
+      '<div class="heatmap">' +
+      data
+        .map((sector) => {
+          const change = sector.change ?? 0;
+          return `
+        <div class="heatmap-cell ${getHeatmapClass(change)}">
+          <div class="sector-name">${escapeHtml(sector.name)}</div>
+          <div class="sector-change ${getChangeClass(change)}">${formatChange(change)}</div>
+        </div>
+      `;
+        })
+        .join('') +
+      '</div>';
+
+    this.setContent(html);
+  }
+}
+
+export class TokenListPanel extends Panel {
+  public renderTokens(data: TokenData[]): void {
+    if (data.length === 0) {
+      this.showRetrying(t('common.failedCryptoData'));
+      return;
+    }
+
+    const rows = data
+      .map(
+        (tok) => `
+      <div class="market-item">
+        <div class="market-info">
+          <span class="market-name">${escapeHtml(tok.name)}</span>
+          <span class="market-symbol">${escapeHtml(tok.symbol)}</span>
+        </div>
+        <div class="market-data">
+          <span class="market-price">$${tok.price.toLocaleString(undefined, { maximumFractionDigits: tok.price < 1 ? 6 : 2 })}</span>
+          <span class="market-change ${getChangeClass(tok.change24h)}">${formatChange(tok.change24h)}</span>
+          <span class="market-change market-change--7d ${getChangeClass(tok.change7d)}">${formatChange(tok.change7d)}W</span>
+        </div>
+      </div>
+    `
+      )
+      .join('');
+
+    this.setContent(rows);
+  }
+}
+
+export class DefiTokensPanel extends TokenListPanel {
+  constructor() {
+    super({ id: 'defi-tokens', title: 'DeFi Tokens', infoTooltip: t('components.defiTokens.infoTooltip') });
+  }
+}
+
+export class AiTokensPanel extends TokenListPanel {
+  constructor() {
+    super({ id: 'ai-tokens', title: 'AI Tokens', infoTooltip: t('components.aiTokens.infoTooltip') });
+  }
+}
+
+export class OtherTokensPanel extends TokenListPanel {
+  constructor() {
+    super({ id: 'other-tokens', title: 'Alt Tokens', infoTooltip: t('components.altTokens.infoTooltip') });
   }
 }

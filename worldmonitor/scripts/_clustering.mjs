@@ -120,12 +120,16 @@ export function clusterItems(items) {
     });
 
     const primary = sorted[0];
+    // Prefer highest-tier non-keyword threat; `sorted` is already tier/date ordered so reuse it.
+    const threatItem = sorted.find(i => i.threat?.level && i.threat?.source !== 'keyword');
     return {
       primaryTitle: primary.title,
       primarySource: primary.source,
       primaryLink: primary.link,
+      pubDate: primary.pubDate,
       sourceCount: group.length,
       isAlert: group.some(i => i.isAlert),
+      threat: threatItem?.threat ? { ...threatItem.threat } : (primary.threat ? { ...primary.threat } : undefined),
     };
   });
 }
